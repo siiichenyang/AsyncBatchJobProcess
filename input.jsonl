@@ -1,0 +1,6 @@
+{"name": "query today's weather", "description": "query weather in Shanghai"}
+{"name": "draw a ascii art", "description": "draw a ascii art of an apple"}
+{"description": "this task has no name"}
+{"name": "translate sentence", "description": "translate this sentence to chinese"}
+{badkey: "this is an invalid json"}
+{"name": "write a poem", "description": "write a poem about weather"}
