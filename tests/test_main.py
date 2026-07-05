@@ -3,7 +3,6 @@ import json
 from dataclasses import asdict
 
 from batch_processor.main import (
-    MAX_RETRIES,
     process_task,
     process_task_with_semaphore,
     TaskResult,
@@ -30,13 +29,20 @@ def test_process_task_missing_name():
 
 def test_process_task_timeout_retry():
     semaphore = asyncio.Semaphore(1)
+    timeout_seconds = 0.05
+    max_retries = 1
     result = asyncio.run(
         process_task_with_semaphore(
-            {"name": "slow task"}, semaphore, timeout_seconds=0.05)
+            {"name": "slow task"}, 
+            semaphore, 
+            timeout_seconds=timeout_seconds, 
+            max_retries=max_retries
+        )
     )
     assert result.status == "error"
     assert result.error == "task timed out"
-    assert result.retry_count == MAX_RETRIES
+    assert result.retry_count == max_retries
+    assert result.latency_seconds >= (max_retries + 1) * timeout_seconds
 
 
 def test_jsonl_output_format():

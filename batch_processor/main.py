@@ -62,9 +62,11 @@ async def process_task(task) -> TaskResult:
 async def process_task_with_semaphore(
         task, 
         semaphore, 
-        timeout_seconds=TASK_TIMEOUT_SECONDS) -> TaskResult:
+        timeout_seconds=TASK_TIMEOUT_SECONDS,
+        max_retries=MAX_RETRIES) -> TaskResult:
     async with semaphore:
-        for attempt_index in range(MAX_RETRIES + 1):
+        start_process_time = time.perf_counter()
+        for attempt_index in range(max_retries + 1):
             try:
                 ret = await asyncio.wait_for(process_task(task), timeout=timeout_seconds)
             except asyncio.TimeoutError:
@@ -81,8 +83,8 @@ async def process_task_with_semaphore(
             status="error",
             result={},
             error="task timed out",
-            latency_seconds=timeout_seconds,
-            retry_count=MAX_RETRIES,
+            latency_seconds=time.perf_counter() - start_process_time,
+            retry_count=max_retries,
         )
 
 
