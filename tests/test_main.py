@@ -33,9 +33,9 @@ def test_process_task_timeout_retry():
     max_retries = 1
     result = asyncio.run(
         process_task_with_semaphore(
-            {"name": "slow task"}, 
-            semaphore, 
-            timeout_seconds=timeout_seconds, 
+            {"name": "slow task"},
+            semaphore,
+            timeout_seconds=timeout_seconds,
             max_retries=max_retries
         )
     )

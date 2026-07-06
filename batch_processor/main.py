@@ -4,6 +4,9 @@ import logging
 import time
 from dataclasses import asdict, dataclass
 
+from batch_processor.jsonl_io import write_jsonl
+
+
 INPUT_PATH = "input.jsonl"
 OUTPUT_PATH = "output.jsonl"
 MAX_CONCURRENCY = 2
@@ -91,8 +94,7 @@ async def process_task_with_semaphore(
 async def main():
     logger.info("Batch processor started.")
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
-    with open(INPUT_PATH, "r", encoding="utf-8") as input_file, \
-         open(OUTPUT_PATH, "w", encoding="utf-8") as output_file:
+    with open(INPUT_PATH, "r", encoding="utf-8") as input_file:
         input_tasks = []
         results = []
         for line in input_file:
@@ -113,11 +115,8 @@ async def main():
                 results.append(task_result)
         processed_results = await asyncio.gather(*input_tasks)
         results.extend(processed_results)
-        for data in results:
-            output_task_result = asdict(data)
-            print(output_task_result)
-            output_data = json.dumps(output_task_result, ensure_ascii=False)
-            output_file.write(output_data + "\n")
+        output_records = [asdict(result) for result in results]
+        write_jsonl(OUTPUT_PATH, output_records)
 
 
 if __name__ == "__main__":
