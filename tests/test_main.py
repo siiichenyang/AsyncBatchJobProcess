@@ -3,6 +3,7 @@ import json
 from dataclasses import asdict
 
 from batch_processor.main import (
+    run_batch,
     process_task,
     process_task_with_semaphore,
     TaskResult,
@@ -60,3 +61,52 @@ def test_jsonl_output_format():
     assert loaded["status"] == "success"
     assert loaded["error"] is None
     assert loaded["retry_count"] == 0
+
+
+def test_run_batch_writes_success_and_error_results(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+
+    input_path.write_text(
+        '{"name": "write a story.", "description": "a story about lost and find."}\n'
+        '{"description": "a task without name"}\n'
+        '{name: "this is an invalid task"}\n',
+        encoding="utf-8",
+    )
+
+    results = asyncio.run(
+        run_batch(
+            input_path,
+            output_path,
+        )
+    )
+
+    assert len(results) == 3
+
+    output_lines = output_path.read_text(encoding="utf-8").splitlines()
+    output_records = [json.loads(line) for line in output_lines]
+
+    assert len(output_records) == 3
+
+    assert any(
+        record["name"] == "write a story."
+        and record["status"] == "success"
+        and record["error"] is None
+        for record in output_records
+    )
+
+    assert any(
+        record["name"] == "<unknown>"
+        and record["status"] == "error"
+        and record["error"] is not None
+        and "missing required field" in record["error"]
+        for record in output_records
+    )
+
+    assert any(
+        record["name"] == "<invalid-json>"
+        and record["status"] == "error"
+        and record["error"] is not None
+        and "Invalid JSON line" in record["error"]
+        for record in output_records
+    )

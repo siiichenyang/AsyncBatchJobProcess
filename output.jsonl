@@ -1,6 +1,0 @@
-{"name": "<invalid-json>", "status": "error", "result": {}, "error": "Invalid JSON line 5: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)", "latency_seconds": 0.0, "retry_count": 0}
-{"name": "query today's weather", "status": "success", "result": {"data": 500, "msg": "This is a task result."}, "error": null, "latency_seconds": 0.10471350001171231, "retry_count": 0}
-{"name": "draw a ascii art", "status": "success", "result": {"data": 500, "msg": "This is a task result."}, "error": null, "latency_seconds": 0.10481150000123307, "retry_count": 0}
-{"name": "<unknown>", "status": "error", "result": {}, "error": "missing required field: 'name'", "latency_seconds": 5.700043402612209e-06, "retry_count": 0}
-{"name": "translate sentence", "status": "success", "result": {"data": 500, "msg": "This is a task result."}, "error": null, "latency_seconds": 0.10488319996511564, "retry_count": 0}
-{"name": "write a poem", "status": "success", "result": {"data": 500, "msg": "This is a task result."}, "error": null, "latency_seconds": 0.10497029998805374, "retry_count": 0}

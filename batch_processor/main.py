@@ -93,16 +93,27 @@ async def process_task_with_semaphore(
         )
 
 
-async def main():
+async def run_batch(
+    input_path: str,
+    output_path: str,
+    max_concurrency: int = MAX_CONCURRENCY,
+    timeout_seconds: float = TASK_TIMEOUT_SECONDS,
+    max_retries: int = MAX_RETRIES,
+) -> list[TaskResult]:
     logger.info("Batch processor started.")
-    semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+    semaphore = asyncio.Semaphore(max_concurrency)
 
-    records = read_jsonl(INPUT_PATH)
+    records = read_jsonl(input_path)
     results = []
     input_tasks = []
     for record in records:
         if record.data is not None:
-            task = process_task_with_semaphore(record.data, semaphore)
+            task = process_task_with_semaphore(
+                record.data,
+                semaphore,
+                timeout_seconds=timeout_seconds,
+                max_retries=max_retries,
+            )
             input_tasks.append(task)
         elif record.error is not None:
             results.append(
@@ -118,7 +129,15 @@ async def main():
     processed_results = await asyncio.gather(*input_tasks)
     results.extend(processed_results)
     output_records = [asdict(result) for result in results]
-    write_jsonl(OUTPUT_PATH, output_records)
+    write_jsonl(output_path, output_records)
+    return results
+
+
+async def main():
+    await run_batch(
+        INPUT_PATH,
+        OUTPUT_PATH,
+    )
 
 
 if __name__ == "__main__":
