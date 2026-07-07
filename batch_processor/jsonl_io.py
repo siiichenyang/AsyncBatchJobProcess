@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import json
 import logging
 
@@ -5,15 +6,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def read_jsonl(path: str) -> list[dict]:
+@dataclass
+class JsonRecord:
+    data: dict | None
+    error: str | None
+
+
+def read_jsonl(path: str) -> list[JsonRecord]:
     data = []
     with open(path, "r", encoding="utf-8") as input_file:
         for line_no, line in enumerate(input_file, start=1):
             try:
                 input_data = json.loads(line)
-                data.append(input_data)
-            except json.JSONDecodeError:
-                logger.warning(f"Invalid JSON line: {line_no}.")
+                data.append(JsonRecord(data=input_data, error=None))
+            except json.JSONDecodeError as exc:
+                err_str = f"Invalid JSON line {line_no}: {exc}"
+                logger.warning(err_str)
+                data.append(JsonRecord(data=None, error=err_str))
     return data
 
 
