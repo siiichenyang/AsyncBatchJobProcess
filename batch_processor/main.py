@@ -1,10 +1,12 @@
 import asyncio
-import json
 import logging
 import time
 from dataclasses import asdict, dataclass
 
-from batch_processor.jsonl_io import write_jsonl
+from batch_processor.jsonl_io import (
+    read_jsonl,
+    write_jsonl,
+)
 
 
 INPUT_PATH = "input.jsonl"
@@ -44,7 +46,7 @@ async def process_task(task) -> TaskResult:
         )
         logger.warning(err_str)
         return task_result
-    
+
     await asyncio.sleep(0.1)
 
     task_result = TaskResult(
@@ -63,8 +65,8 @@ async def process_task(task) -> TaskResult:
 
 
 async def process_task_with_semaphore(
-        task, 
-        semaphore, 
+        task,
+        semaphore,
         timeout_seconds=TASK_TIMEOUT_SECONDS,
         max_retries=MAX_RETRIES) -> TaskResult:
     async with semaphore:
@@ -78,7 +80,7 @@ async def process_task_with_semaphore(
                 if attempt_index > 0:
                     ret.retry_count = attempt_index
                 return ret
-        
+
         task_name = task.get("name", "<unknown>")
         logger.warning(f"Task timed out: {task_name}")
         return TaskResult(
@@ -94,29 +96,29 @@ async def process_task_with_semaphore(
 async def main():
     logger.info("Batch processor started.")
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
-    with open(INPUT_PATH, "r", encoding="utf-8") as input_file:
-        input_tasks = []
-        results = []
-        for line in input_file:
-            try:
-                input_data = json.loads(line)
-                task = process_task_with_semaphore(input_data, semaphore)
-                input_tasks.append(task)
-            except json.JSONDecodeError as exc:
-                task_result = TaskResult(
+
+    records = read_jsonl(INPUT_PATH)
+    results = []
+    input_tasks = []
+    for record in records:
+        if record.data is not None:
+            task = process_task_with_semaphore(record.data, semaphore)
+            input_tasks.append(task)
+        elif record.error is not None:
+            results.append(
+                TaskResult(
                     name="<invalid-json>",
                     status="error",
                     result={},
-                    error=str(exc),
+                    error=record.error,
                     latency_seconds=0.0,
                     retry_count=0,
                 )
-                logger.warning("Invalid JSON.")
-                results.append(task_result)
-        processed_results = await asyncio.gather(*input_tasks)
-        results.extend(processed_results)
-        output_records = [asdict(result) for result in results]
-        write_jsonl(OUTPUT_PATH, output_records)
+            )
+    processed_results = await asyncio.gather(*input_tasks)
+    results.extend(processed_results)
+    output_records = [asdict(result) for result in results]
+    write_jsonl(OUTPUT_PATH, output_records)
 
 
 if __name__ == "__main__":
