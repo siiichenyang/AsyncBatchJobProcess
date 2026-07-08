@@ -27,7 +27,7 @@ class TaskResult:
 async def process_task(task) -> TaskResult:
     start_time = time.perf_counter()
     try:
-        task_name = task["name"]
+        task_name = validate_task_input(task)
     except KeyError as exc:
         err_str = f"missing required field: {str(exc)}"
         task_result = TaskResult(
@@ -56,6 +56,12 @@ async def process_task(task) -> TaskResult:
     )
     logger.info(f"Processed task successfully: {task_name}")
     return task_result
+
+
+def validate_task_input(task: dict) -> str:
+    if "name" not in task:
+        raise KeyError("name")
+    return task["name"]
 
 
 async def process_task_with_semaphore(

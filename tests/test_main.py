@@ -8,6 +8,7 @@ from batch_processor.main import (
     process_task,
     process_task_with_semaphore,
     TaskResult,
+    validate_task_input,
 )
 from batch_processor.config import BatchConfig
 
@@ -123,3 +124,14 @@ def test_basic_config_check():
         BatchConfig(timeout_seconds=0)
     with pytest.raises(ValueError, match="max_retries"):
         BatchConfig(max_retries=-1)
+
+
+def test_validate_task_input_returns_name():
+    assert validate_task_input(
+        {"name": "what's time now", "description": "query time"}
+    ) == "what's time now"
+
+
+def test_validate_task_input_requires_name():
+    with pytest.raises(KeyError):
+        validate_task_input({"description": "without name"})
