@@ -7,13 +7,7 @@ from batch_processor.jsonl_io import (
     read_jsonl,
     write_jsonl,
 )
-
-
-INPUT_PATH = "input.jsonl"
-OUTPUT_PATH = "output.jsonl"
-MAX_CONCURRENCY = 2
-TASK_TIMEOUT_SECONDS = 0.2
-MAX_RETRIES = 2
+from batch_processor.config import BatchConfig
 
 
 logging.basicConfig(level=logging.INFO)
@@ -67,8 +61,8 @@ async def process_task(task) -> TaskResult:
 async def process_task_with_semaphore(
         task,
         semaphore,
-        timeout_seconds=TASK_TIMEOUT_SECONDS,
-        max_retries=MAX_RETRIES) -> TaskResult:
+        timeout_seconds,
+        max_retries) -> TaskResult:
     async with semaphore:
         start_process_time = time.perf_counter()
         for attempt_index in range(max_retries + 1):
@@ -93,17 +87,11 @@ async def process_task_with_semaphore(
         )
 
 
-async def run_batch(
-    input_path: str,
-    output_path: str,
-    max_concurrency: int = MAX_CONCURRENCY,
-    timeout_seconds: float = TASK_TIMEOUT_SECONDS,
-    max_retries: int = MAX_RETRIES,
-) -> list[TaskResult]:
+async def run_batch(config: BatchConfig) -> list[TaskResult]:
     logger.info("Batch processor started.")
-    semaphore = asyncio.Semaphore(max_concurrency)
+    semaphore = asyncio.Semaphore(config.max_concurrency)
 
-    records = read_jsonl(input_path)
+    records = read_jsonl(config.input_path)
     results = []
     input_tasks = []
     for record in records:
@@ -111,8 +99,8 @@ async def run_batch(
             task = process_task_with_semaphore(
                 record.data,
                 semaphore,
-                timeout_seconds=timeout_seconds,
-                max_retries=max_retries,
+                timeout_seconds=config.timeout_seconds,
+                max_retries=config.max_retries,
             )
             input_tasks.append(task)
         elif record.error is not None:
@@ -129,15 +117,12 @@ async def run_batch(
     processed_results = await asyncio.gather(*input_tasks)
     results.extend(processed_results)
     output_records = [asdict(result) for result in results]
-    write_jsonl(output_path, output_records)
+    write_jsonl(config.output_path, output_records)
     return results
 
 
 async def main():
-    await run_batch(
-        INPUT_PATH,
-        OUTPUT_PATH,
-    )
+    await run_batch(BatchConfig())
 
 
 if __name__ == "__main__":

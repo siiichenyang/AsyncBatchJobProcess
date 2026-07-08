@@ -1,4 +1,5 @@
 import asyncio
+import pytest
 import json
 from dataclasses import asdict
 
@@ -8,6 +9,7 @@ from batch_processor.main import (
     process_task_with_semaphore,
     TaskResult,
 )
+from batch_processor.config import BatchConfig
 
 
 def test_process_task_success():
@@ -76,8 +78,10 @@ def test_run_batch_writes_success_and_error_results(tmp_path):
 
     results = asyncio.run(
         run_batch(
-            input_path,
-            output_path,
+            BatchConfig(
+                input_path=input_path,
+                output_path=output_path,
+            )
         )
     )
 
@@ -110,3 +114,12 @@ def test_run_batch_writes_success_and_error_results(tmp_path):
         and "Invalid JSON line" in record["error"]
         for record in output_records
     )
+
+
+def test_basic_config_check():
+    with pytest.raises(ValueError, match="max_concurrency"):
+        BatchConfig(max_concurrency=0)
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        BatchConfig(timeout_seconds=0)
+    with pytest.raises(ValueError, match="max_retries"):
+        BatchConfig(max_retries=-1)
