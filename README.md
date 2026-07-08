@@ -15,7 +15,7 @@ From the project root:
 
 ### Input & Output
 Input: `input.jsonl`
-Output: `output.jsonl`
+Output: `output.jsonl` (generated locally and ignored by git)
 
 ### Output Fields
 ```
@@ -26,3 +26,12 @@ error: The error message, or null if the task succeeds.
 latency_seconds: The task processing time in seconds.
 retry_count: The number of retry attempts.
 ```
+
+### Configuration
+Config path: `batch_processor/config.py`
+
+- `input_path`: Input JSONL file path.
+- `output_path`: Output JSONL file path. The default `output.jsonl` is generated locally and ignored by git.
+- `max_concurrency`: Maximum number of tasks processed concurrently.
+- `timeout_seconds`: Timeout for each task attempt.
+- `max_retries`: Number of retry attempts after the initial attempt.
