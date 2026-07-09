@@ -26,6 +26,7 @@ class TaskResult:
     error: str | None
     latency_seconds: float
     retry_count: int
+    passed: bool | None = None
 
 
 async def process_task(task, llm_client: LLMClient) -> TaskResult:
@@ -56,6 +57,8 @@ async def process_task(task, llm_client: LLMClient) -> TaskResult:
         latency_seconds=time.perf_counter() - start_time,
         retry_count=0,
     )
+    if "expected" in task:
+        task_result.passed = task["expected"] == response
     logger.info(f"Processed task successfully: {task_name}")
     return task_result
 
@@ -71,14 +74,16 @@ async def process_task_with_semaphore(
         semaphore,
         timeout_seconds,
         max_retries,
-        llm_client: LLMClient,) -> TaskResult:
+        llm_client: LLMClient,
+) -> TaskResult:
     async with semaphore:
         start_process_time = time.perf_counter()
         for attempt_index in range(max_retries + 1):
             try:
                 ret = await asyncio.wait_for(
                     process_task(task, llm_client),
-                    timeout=timeout_seconds)
+                    timeout=timeout_seconds,
+                )
             except asyncio.TimeoutError:
                 continue
             else:

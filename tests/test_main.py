@@ -15,16 +15,24 @@ from batch_processor.llm_client import FakeLLMClient
 
 
 def test_process_task_success():
-    result = asyncio.run(process_task({"name": "test task"}, FakeLLMClient("expected response")))
+    result = asyncio.run(
+        process_task(
+            {"name": "test task", "expected": "expected response"},
+            FakeLLMClient("expected response"),
+        )
+    )
     assert result.status == "success"
     assert result.name == "test task"
     assert result.error is None
     assert result.retry_count == 0
     assert result.result == {"output": "expected response"}
+    assert result.passed is True
 
 
 def test_process_task_missing_name():
-    result = asyncio.run(process_task({"description": "missing name"}, FakeLLMClient()))
+    result = asyncio.run(
+        process_task({"description": "missing name"}, FakeLLMClient())
+    )
     assert result.status == "error"
     assert result.name == "<unknown>"
     assert result.result == {}
@@ -60,6 +68,7 @@ def test_jsonl_output_format():
         error=None,
         latency_seconds=0.0,
         retry_count=0,
+        passed=True,
     )
     json_line = json.dumps(asdict(result), ensure_ascii=False)
     loaded = json.loads(json_line)
@@ -67,6 +76,7 @@ def test_jsonl_output_format():
     assert loaded["status"] == "success"
     assert loaded["error"] is None
     assert loaded["retry_count"] == 0
+    assert loaded["passed"] is True
 
 
 def test_run_batch_writes_success_and_error_results(tmp_path):
@@ -74,7 +84,7 @@ def test_run_batch_writes_success_and_error_results(tmp_path):
     output_path = tmp_path / "output.jsonl"
 
     input_path.write_text(
-        '{"name": "write a story.", "description": "a story about lost and find."}\n'
+        '{"name": "write a story.", "description": "a story about lost and find.", "expected": "expected response"}\n'
         '{"description": "a task without name"}\n'
         '{name: "this is an invalid task"}\n',
         encoding="utf-8",
@@ -102,6 +112,7 @@ def test_run_batch_writes_success_and_error_results(tmp_path):
         and record["status"] == "success"
         and record["error"] is None
         and record["result"]["output"] == "expected response"
+        and record["passed"] is True
         for record in output_records
     )
 
@@ -140,3 +151,50 @@ def test_validate_task_input_returns_name():
 def test_validate_task_input_requires_name():
     with pytest.raises(KeyError):
         validate_task_input({"description": "without name"})
+
+
+def test_process_task_failed_expected_match(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+
+    input_path.write_text(
+        '{"name": "query today\'s weather", "description": "query weather in Shanghai", "expected": "another response"}',
+        encoding="utf-8",
+    )
+
+    results = asyncio.run(
+        run_batch(
+            BatchConfig(input_path, output_path),
+            FakeLLMClient("fake response"),
+        )
+    )
+
+    assert len(results) == 1
+
+    output_lines = output_path.read_text(encoding="utf-8").splitlines()
+    output_records = [json.loads(line) for line in output_lines]
+
+    assert output_records[0]["passed"] is False
+
+
+def test_process_task_without_expected_has_no_passed_value(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+
+    input_path.write_text(
+        '{"name": "query today\'s weather", "description": "query weather in Shanghai"}',
+        encoding="utf-8",
+    )
+
+    results = asyncio.run(
+        run_batch(
+            BatchConfig(input_path, output_path),
+            FakeLLMClient("fake response"),
+        )
+    )
+
+    output_lines = output_path.read_text(encoding="utf-8").splitlines()
+    output_records = [json.loads(line) for line in output_lines]
+
+    assert len(results) == 1
+    assert output_records[0]["passed"] is None
