@@ -8,6 +8,10 @@ from batch_processor.jsonl_io import (
     write_jsonl,
 )
 from batch_processor.config import BatchConfig
+from batch_processor.llm_client import (
+    LLMClient,
+    FakeLLMClient,
+)
 
 
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +28,7 @@ class TaskResult:
     retry_count: int
 
 
-async def process_task(task) -> TaskResult:
+async def process_task(task, llm_client: LLMClient) -> TaskResult:
     start_time = time.perf_counter()
     try:
         task_name = validate_task_input(task)
@@ -42,14 +46,12 @@ async def process_task(task) -> TaskResult:
         return task_result
 
     await asyncio.sleep(0.1)
+    response = await llm_client.generate(task["name"])
 
     task_result = TaskResult(
         name=task_name,
         status="success",
-        result={
-            "data": 500,
-            "msg": "This is a task result."
-        },
+        result={"output": response},
         error=None,
         latency_seconds=time.perf_counter() - start_time,
         retry_count=0,
@@ -68,12 +70,15 @@ async def process_task_with_semaphore(
         task,
         semaphore,
         timeout_seconds,
-        max_retries) -> TaskResult:
+        max_retries,
+        llm_client: LLMClient,) -> TaskResult:
     async with semaphore:
         start_process_time = time.perf_counter()
         for attempt_index in range(max_retries + 1):
             try:
-                ret = await asyncio.wait_for(process_task(task), timeout=timeout_seconds)
+                ret = await asyncio.wait_for(
+                    process_task(task, llm_client),
+                    timeout=timeout_seconds)
             except asyncio.TimeoutError:
                 continue
             else:
@@ -93,7 +98,7 @@ async def process_task_with_semaphore(
         )
 
 
-async def run_batch(config: BatchConfig) -> list[TaskResult]:
+async def run_batch(config: BatchConfig, llm_client: LLMClient) -> list[TaskResult]:
     logger.info("Batch processor started.")
     semaphore = asyncio.Semaphore(config.max_concurrency)
 
@@ -107,6 +112,7 @@ async def run_batch(config: BatchConfig) -> list[TaskResult]:
                 semaphore,
                 timeout_seconds=config.timeout_seconds,
                 max_retries=config.max_retries,
+                llm_client=llm_client,
             )
             input_tasks.append(task)
         elif record.error is not None:
@@ -128,7 +134,7 @@ async def run_batch(config: BatchConfig) -> list[TaskResult]:
 
 
 async def main():
-    await run_batch(BatchConfig())
+    await run_batch(BatchConfig(), FakeLLMClient())
 
 
 if __name__ == "__main__":

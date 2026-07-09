@@ -11,18 +11,20 @@ from batch_processor.main import (
     validate_task_input,
 )
 from batch_processor.config import BatchConfig
+from batch_processor.llm_client import FakeLLMClient
 
 
 def test_process_task_success():
-    result = asyncio.run(process_task({"name": "test task"}))
+    result = asyncio.run(process_task({"name": "test task"}, FakeLLMClient("expected response")))
     assert result.status == "success"
     assert result.name == "test task"
     assert result.error is None
     assert result.retry_count == 0
+    assert result.result == {"output": "expected response"}
 
 
 def test_process_task_missing_name():
-    result = asyncio.run(process_task({"description": "missing name"}))
+    result = asyncio.run(process_task({"description": "missing name"}, FakeLLMClient()))
     assert result.status == "error"
     assert result.name == "<unknown>"
     assert result.result == {}
@@ -40,7 +42,8 @@ def test_process_task_timeout_retry():
             {"name": "slow task"},
             semaphore,
             timeout_seconds=timeout_seconds,
-            max_retries=max_retries
+            max_retries=max_retries,
+            llm_client=FakeLLMClient(),
         )
     )
     assert result.status == "error"
@@ -82,7 +85,8 @@ def test_run_batch_writes_success_and_error_results(tmp_path):
             BatchConfig(
                 input_path=input_path,
                 output_path=output_path,
-            )
+            ),
+            FakeLLMClient("expected response"),
         )
     )
 
@@ -97,6 +101,7 @@ def test_run_batch_writes_success_and_error_results(tmp_path):
         record["name"] == "write a story."
         and record["status"] == "success"
         and record["error"] is None
+        and record["result"]["output"] == "expected response"
         for record in output_records
     )
 
