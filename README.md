@@ -17,6 +17,13 @@ From the project root:
 Input: `input.jsonl`
 Output: `output.jsonl` (generated locally and ignored by git)
 
+### Input Fields
+```
+name: Required task name.
+description: Optional task description.
+expected: Optional expected response uesed for exact-match evaluation.
+```
+
 ### Output Fields
 ```
 name: The task name.
@@ -25,6 +32,7 @@ result: The simulated task output.
 error: The error message, or null if the task succeeds.
 latency_seconds: The task processing time in seconds.
 retry_count: The number of retry attempts.
+passed: true if output matches expected, false if it does not, null if expected is not provided or the task is not evaluated.
 ```
 
 ### Configuration
