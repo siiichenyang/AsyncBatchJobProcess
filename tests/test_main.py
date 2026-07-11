@@ -268,3 +268,58 @@ def test_summary_zero_evaluated(tmp_path):
     assert summary["passed"] == 0
     assert summary["failed"] == 0
     assert math.isclose(summary["pass_rate"], 0)
+
+
+class StubLLMClient:
+    def __init__(
+        self,
+        error: Exception,
+        response: str = "fake response",
+    ):
+        self.response = response
+        self.error = error
+
+    async def generate(self, prompt: str) -> str:
+        match prompt:
+            case "prompt 1":
+                return self.response
+            case "prompt 2":
+                raise self.error
+            case _:
+                raise self.error
+
+
+def test_processed_task_generation_error(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+    summary_path = tmp_path / "summary.json"
+
+    input_path.write_text("""{"name": "prompt 1", "description": "query weather in Shanghai"}
+{"name": "prompt 2", "description": "draw a ascii art of an apple", "expected": "error prompt"}
+""", encoding="utf-8")
+
+    asyncio.run(
+        run_batch(
+            BatchConfig(
+                input_path=input_path,
+                output_path=output_path,
+                summary_path=summary_path,
+            ),
+            StubLLMClient(error=RuntimeError("expected failure")),
+        )
+    )
+
+    output_str = output_path.read_text(encoding="utf-8").splitlines()
+    outputs = [json.loads(line) for line in output_str]
+
+    assert outputs[0]["status"] == "success"
+    assert outputs[1]["status"] == "error"
+    assert "RuntimeError" in outputs[1]["error"]
+    assert outputs[1]["passed"] is None
+
+    summary_str = summary_path.read_text(encoding="utf-8")
+    summary = json.loads(summary_str)
+
+    assert summary["total"] == 2
+    assert summary["success"] == 1
+    assert summary["error"] == 1

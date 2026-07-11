@@ -49,16 +49,30 @@ async def process_task(task, llm_client: LLMClient) -> TaskResult:
         return task_result
 
     await asyncio.sleep(0.1)
-    response = await llm_client.generate(task["name"])
+    try:
+        response = await llm_client.generate(task["name"])
+    except Exception as exc:
+        err_str = f'{type(exc).__name__}: {exc}'
+        task_result = TaskResult(
+            name=task_name,
+            status="error",
+            result={},
+            error=err_str,
+            latency_seconds=time.perf_counter() - start_time,
+            retry_count=0,
+        )
+        logger.warning(err_str)
+        return task_result
+    else:
+        task_result = TaskResult(
+            name=task_name,
+            status="success",
+            result={"output": response},
+            error=None,
+            latency_seconds=time.perf_counter() - start_time,
+            retry_count=0,
+        )
 
-    task_result = TaskResult(
-        name=task_name,
-        status="success",
-        result={"output": response},
-        error=None,
-        latency_seconds=time.perf_counter() - start_time,
-        retry_count=0,
-    )
     if "expected" in task:
         task_result.passed = task["expected"] == response
     logger.info(f"Processed task successfully: {task_name}")
