@@ -6,12 +6,14 @@ from dataclasses import asdict, dataclass
 from batch_processor.jsonl_io import (
     read_jsonl,
     write_jsonl,
+    write_json,
 )
 from batch_processor.config import BatchConfig
 from batch_processor.llm_client import (
     LLMClient,
     FakeLLMClient,
 )
+from batch_processor.evals import Summary
 
 
 logging.basicConfig(level=logging.INFO)
@@ -135,7 +137,34 @@ async def run_batch(config: BatchConfig, llm_client: LLMClient) -> list[TaskResu
     results.extend(processed_results)
     output_records = [asdict(result) for result in results]
     write_jsonl(config.output_path, output_records)
+
+    summary = build_summary(results)
+
+    write_json(config.summary_path, summary)
+
     return results
+
+
+def build_summary(results: list[TaskResult]) -> dict[str, int | float]:
+    summary = Summary()
+
+    for result in results:
+        summary.total += 1
+        if result.status == "success":
+            summary.success += 1
+        else:
+            summary.error += 1
+        if result.passed is not None:
+            summary.evaluated += 1
+            if result.passed:
+                summary.passed += 1
+            else:
+                summary.failed += 1
+
+    if summary.evaluated > 0:
+        summary.pass_rate = summary.passed / summary.evaluated
+
+    return asdict(summary)
 
 
 async def main():

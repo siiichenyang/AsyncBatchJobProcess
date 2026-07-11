@@ -8,6 +8,7 @@ class BatchConfig:
     max_concurrency: int = 2
     timeout_seconds: float = 0.2
     max_retries: int = 2
+    summary_path: str = "summary.json"
 
     def __post_init__(self) -> None:
         if self.max_concurrency < 1:

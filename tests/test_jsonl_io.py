@@ -3,6 +3,7 @@ from batch_processor.jsonl_io import (
     JsonRecord,
     read_jsonl,
     write_jsonl,
+    write_json,
 )
 
 
@@ -75,3 +76,29 @@ def test_read_handle_blank_line(tmp_path):
         data={"name": "task a", "description": "delete a file."}, error=None)
     assert records[1].error is not None
     assert "Invalid JSON line" in records[1].error
+
+
+def test_write_json(tmp_path):
+    output_path = tmp_path / "output.json"
+
+    input_data = {
+        "total": 5,
+        "success": 4,
+        "error": 1,
+        "evaluated": 4,
+        "passed": 1,
+        "failed": 3,
+        "pass_rate": 0.25,
+    }
+
+    write_json(output_path, input_data)
+
+    summary = json.loads(output_path.read_text(encoding="utf-8"))
+
+    assert summary["total"] == 5
+    assert summary["success"] == 4
+    assert summary["error"] == 1
+    assert summary["evaluated"] == 4
+    assert summary["passed"] == 1
+    assert summary["failed"] == 3
+    assert summary["pass_rate"] == 0.25

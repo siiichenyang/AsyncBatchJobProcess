@@ -32,3 +32,8 @@ def write_jsonl(path: str, records: list[dict]) -> None:
             output_data = json.dumps(
                 data, ensure_ascii=False)
             output_file.write(output_data + "\n")
+
+
+def write_json(path: str, content: dict) -> None:
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(content, file, ensure_ascii=False)

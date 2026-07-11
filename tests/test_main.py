@@ -1,4 +1,5 @@
 import asyncio
+import math
 import pytest
 import json
 from dataclasses import asdict
@@ -198,3 +199,72 @@ def test_process_task_without_expected_has_no_passed_value(tmp_path):
 
     assert len(results) == 1
     assert output_records[0]["passed"] is None
+
+
+def test_simple_summary(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+    summary_path = tmp_path / "summary.json"
+
+    input_path.write_text("""{"name": "query today's weather", "description": "query weather in Shanghai", "expected": "fake response"}
+{"name": "draw a ascii art", "description": "draw a ascii art of an apple"}
+{"description": "this task has no name"}
+{"name": "translate sentence", "description": "translate this sentence to chinese", "expected": "wrong response"}
+{badkey: "this is an invalid json"}
+{"name": "write a poem", "description": "write a poem about weather", "expected": "fake response"}
+""", encoding="utf-8")
+
+    asyncio.run(
+        run_batch(
+            BatchConfig(
+                input_path=input_path,
+                output_path=output_path,
+                summary_path=summary_path,
+            ),
+            FakeLLMClient(),
+        )
+    )
+
+    summary_str = summary_path.read_text(encoding="utf-8")
+    summary = json.loads(summary_str)
+
+    assert summary["total"] == 6
+    assert summary["success"] == 4
+    assert summary["error"] == 2
+    assert summary["evaluated"] == 3
+    assert summary["passed"] == 2
+    assert summary["failed"] == 1
+    assert math.isclose(summary["pass_rate"], 0.666666666667)
+
+
+def test_summary_zero_evaluated(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+    summary_path = tmp_path / "summary.json"
+
+    input_path.write_text("""{"name": "query today's weather", "description": "query weather in Shanghai"}
+{"name": "draw a ascii art", "description": "draw a ascii art of an apple"}
+{"description": "this task has no name"}
+""", encoding="utf-8")
+
+    asyncio.run(
+        run_batch(
+            BatchConfig(
+                input_path=input_path,
+                output_path=output_path,
+                summary_path=summary_path,
+            ),
+            FakeLLMClient(),
+        )
+    )
+
+    summary_str = summary_path.read_text(encoding="utf-8")
+    summary = json.loads(summary_str)
+
+    assert summary["total"] == 3
+    assert summary["success"] == 2
+    assert summary["error"] == 1
+    assert summary["evaluated"] == 0
+    assert summary["passed"] == 0
+    assert summary["failed"] == 0
+    assert math.isclose(summary["pass_rate"], 0)
