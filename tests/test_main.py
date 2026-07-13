@@ -5,13 +5,18 @@ import json
 from dataclasses import asdict
 
 from batch_processor.main import (
+    create_llm_client,
+    main,
     run_batch,
     process_task,
     process_task_with_semaphore,
     TaskResult,
     validate_task_input,
 )
-from batch_processor.config import BatchConfig
+from batch_processor.config import (
+    BatchConfig,
+    LLMConfig,
+)
 from batch_processor.llm_client import FakeLLMClient
 
 
@@ -323,3 +328,35 @@ def test_processed_task_generation_error(tmp_path):
     assert summary["total"] == 2
     assert summary["success"] == 1
     assert summary["error"] == 1
+
+
+def test_create_llm_client_fake_client_create():
+    config = LLMConfig(
+        provider="fake",
+        model=None,
+        api_key=None,
+    )
+
+    client = create_llm_client(config)
+
+    assert isinstance(client, FakeLLMClient)
+
+
+def test_create_llm_client_not_supported_client():
+    config = LLMConfig(
+        provider="openai",
+        model="gpt-example",
+        api_key="fake api key",
+    )
+
+    with pytest.raises(ValueError, match="LLMConfig provider not supported"):
+        create_llm_client(config)
+
+
+def test_create_llm_client_not_supported_client_main(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("LLM_MODEL", "gpt-example")
+    monkeypatch.setenv("LLM_API_KEY", "fake api key")
+
+    with pytest.raises(ValueError, match="LLMConfig provider not supported"):
+        asyncio.run(main())

@@ -8,7 +8,10 @@ from batch_processor.jsonl_io import (
     write_jsonl,
     write_json,
 )
-from batch_processor.config import BatchConfig
+from batch_processor.config import (
+    BatchConfig,
+    LLMConfig,
+)
 from batch_processor.llm_client import (
     LLMClient,
     FakeLLMClient,
@@ -181,8 +184,19 @@ def build_summary(results: list[TaskResult]) -> dict[str, int | float]:
     return asdict(summary)
 
 
-async def main():
-    await run_batch(BatchConfig(), FakeLLMClient())
+def create_llm_client(config: LLMConfig) -> LLMClient:
+    if config.provider == "fake":
+        return FakeLLMClient()
+
+    raise ValueError(
+        f"LLMConfig provider not supported: {config.provider!r}"
+    )
+
+
+async def main() -> None:
+    llm_config = LLMConfig.from_env()
+    llm_client = create_llm_client(llm_config)
+    await run_batch(BatchConfig(), llm_client)
 
 
 if __name__ == "__main__":
