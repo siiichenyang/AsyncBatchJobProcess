@@ -8,7 +8,7 @@ class BatchConfig:
     input_path: str = "input.jsonl"
     output_path: str = "output.jsonl"
     max_concurrency: int = 2
-    timeout_seconds: float = 0.2
+    timeout_seconds: float = 30
     max_retries: int = 2
     summary_path: str = "summary.json"
 

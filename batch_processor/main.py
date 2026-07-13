@@ -15,6 +15,7 @@ from batch_processor.config import (
 from batch_processor.llm_client import (
     LLMClient,
     FakeLLMClient,
+    OpenAILLMClient,
 )
 from batch_processor.evals import Summary
 
@@ -51,7 +52,6 @@ async def process_task(task, llm_client: LLMClient) -> TaskResult:
         logger.warning(err_str)
         return task_result
 
-    await asyncio.sleep(0.1)
     try:
         response = await llm_client.generate(task["name"])
     except Exception as exc:
@@ -187,6 +187,8 @@ def build_summary(results: list[TaskResult]) -> dict[str, int | float]:
 def create_llm_client(config: LLMConfig) -> LLMClient:
     if config.provider == "fake":
         return FakeLLMClient()
+    if config.provider == "openai":
+        return OpenAILLMClient(model=config.model, api_key=config.api_key)
 
     raise ValueError(
         f"LLMConfig provider not supported: {config.provider!r}"

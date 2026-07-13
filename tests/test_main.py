@@ -17,7 +17,10 @@ from batch_processor.config import (
     BatchConfig,
     LLMConfig,
 )
-from batch_processor.llm_client import FakeLLMClient
+from batch_processor.llm_client import (
+    FakeLLMClient,
+    OpenAILLMClient,
+)
 
 
 def test_process_task_success():
@@ -47,6 +50,14 @@ def test_process_task_missing_name():
     assert result.retry_count == 0
 
 
+class SlowLLMClient:
+    def __init__(self, sleep_seconds: float = 600):
+        self.sleep_seconds = sleep_seconds
+
+    async def generate(self, prompt: str) -> str:
+        await asyncio.sleep(self.sleep_seconds)
+
+
 def test_process_task_timeout_retry():
     semaphore = asyncio.Semaphore(1)
     timeout_seconds = 0.05
@@ -57,7 +68,7 @@ def test_process_task_timeout_retry():
             semaphore,
             timeout_seconds=timeout_seconds,
             max_retries=max_retries,
-            llm_client=FakeLLMClient(),
+            llm_client=SlowLLMClient(sleep_seconds=0.1),
         )
     )
     assert result.status == "error"
@@ -344,7 +355,7 @@ def test_create_llm_client_fake_client_create():
 
 def test_create_llm_client_not_supported_client():
     config = LLMConfig(
-        provider="openai",
+        provider="not support provider",
         model="gpt-example",
         api_key="fake api key",
     )
@@ -354,9 +365,30 @@ def test_create_llm_client_not_supported_client():
 
 
 def test_create_llm_client_not_supported_client_main(monkeypatch):
-    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("LLM_PROVIDER", "not support provider")
     monkeypatch.setenv("LLM_MODEL", "gpt-example")
     monkeypatch.setenv("LLM_API_KEY", "fake api key")
 
     with pytest.raises(ValueError, match="LLMConfig provider not supported"):
+        asyncio.run(main())
+
+
+def test_create_openai_llm_client():
+    config = LLMConfig(
+        provider="openai",
+        model="gpt-example",
+        api_key="fake api key",
+    )
+
+    client = create_llm_client(config)
+
+    assert isinstance(client, OpenAILLMClient)
+
+
+def test_create_openai_llm_client_without_input_model(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.setenv("LLM_API_KEY", "fake api key")
+
+    with pytest.raises(ValueError, match="OpenAILLMClient requires a model"):
         asyncio.run(main())

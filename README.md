@@ -1,17 +1,57 @@
 # Async JSONL Batch Job Processor
 
 ### Introduction
-This project reads tasks from a JSONL file, processes them, and writes the results to an output file.
+This project reads evaluation tasks from a JSONL file, processes them with a
+fake or OpenAI LLM client, and writes per-task results plus aggregate metrics.
 
-### How to run
+The fake client is the default so the project can be run and tested without an
+API key or network access.
+
+### Setup
+
 From the project root:
+
 1. `python -m venv .venv`
-2. `.\.venv\Scripts\python.exe -m batch_processor.main`
+2. `.\.venv\Scripts\python.exe -m pip install -r requirements.txt`
+
+### Run with the fake client
+
+No environment variables are required:
+
+```powershell
+.\.venv\Scripts\python.exe -m batch_processor.main
+```
+
+### Run with the OpenAI client
+
+Set the required variables in the current PowerShell session, then run the
+processor:
+
+```powershell
+$env:LLM_PROVIDER = "openai"
+$env:LLM_MODEL = "<model-id>"
+$env:LLM_API_KEY = "<your-api-key>"
+.\.venv\Scripts\python.exe -m batch_processor.main
+```
+
+OpenAI mode uses the asynchronous
+[OpenAI Python SDK](https://github.com/openai/openai-python) and the Responses
+API. It sends real requests and may consume API quota.
+
+`.env.example` documents the supported variables, but this project does not
+automatically load a `.env` file. Renaming the example file is therefore not
+enough; export the variables in the shell as shown above. Never commit a real
+API key or a populated `.env` file.
 
 ### How to test
+
 From the project root:
-1. `.\.venv\Scripts\python.exe -m pip install pytest`
-2. `.\.venv\Scripts\python.exe -m pytest`
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Tests use fake and stub clients and do not send network requests.
 
 ### Input & Output
 Input: `input.jsonl`
@@ -56,3 +96,10 @@ Config path: `batch_processor/config.py`
 - `max_concurrency`: Maximum number of tasks processed concurrently.
 - `timeout_seconds`: Timeout for each task attempt.
 - `max_retries`: Number of retry attempts after the initial attempt.
+
+LLM environment variables:
+
+- `LLM_PROVIDER`: Client provider. Defaults to `fake`; `openai` enables the
+  OpenAI client.
+- `LLM_MODEL`: Model ID. Required when `LLM_PROVIDER=openai`.
+- `LLM_API_KEY`: API key. Required when `LLM_PROVIDER=openai`.
