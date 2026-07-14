@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class JsonRecord:
-    data: dict | None
+    data: object | None
     error: str | None
 
 

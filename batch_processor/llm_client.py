@@ -1,4 +1,3 @@
-import asyncio
 from typing import Protocol
 
 from openai import AsyncOpenAI

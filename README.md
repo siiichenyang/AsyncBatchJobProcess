@@ -61,7 +61,7 @@ Summary: `summary.json` (generated locally and ignored by git)
 ### Input Fields
 ```
 name: Required task name.
-description: Optional task description.
+prompt: Required task prompt.
 expected: Optional expected response used for exact-match evaluation.
 ```
 

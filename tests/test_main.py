@@ -11,7 +11,7 @@ from batch_processor.main import (
     process_task,
     process_task_with_semaphore,
     TaskResult,
-    validate_task_input,
+    TaskCase,
 )
 from batch_processor.config import (
     BatchConfig,
@@ -26,7 +26,8 @@ from batch_processor.llm_client import (
 def test_process_task_success():
     result = asyncio.run(
         process_task(
-            {"name": "test task", "expected": "expected response"},
+            {"name": "test task", "prompt": "empty",
+                "expected": "expected response"},
             FakeLLMClient("expected response"),
         )
     )
@@ -40,7 +41,7 @@ def test_process_task_success():
 
 def test_process_task_missing_name():
     result = asyncio.run(
-        process_task({"description": "missing name"}, FakeLLMClient())
+        process_task({"prompt": "missing name"}, FakeLLMClient())
     )
     assert result.status == "error"
     assert result.name == "<unknown>"
@@ -64,7 +65,7 @@ def test_process_task_timeout_retry():
     max_retries = 1
     result = asyncio.run(
         process_task_with_semaphore(
-            {"name": "slow task"},
+            {"name": "slow task", "prompt": "empty"},
             semaphore,
             timeout_seconds=timeout_seconds,
             max_retries=max_retries,
@@ -101,8 +102,8 @@ def test_run_batch_writes_success_and_error_results(tmp_path):
     output_path = tmp_path / "output.jsonl"
 
     input_path.write_text(
-        '{"name": "write a story.", "description": "a story about lost and find.", "expected": "expected response"}\n'
-        '{"description": "a task without name"}\n'
+        '{"name": "write a story.", "prompt": "a story about lost and find.", "expected": "expected response"}\n'
+        '{"prompt": "a task without name"}\n'
         '{name: "this is an invalid task"}\n',
         encoding="utf-8",
     )
@@ -159,23 +160,12 @@ def test_basic_config_check():
         BatchConfig(max_retries=-1)
 
 
-def test_validate_task_input_returns_name():
-    assert validate_task_input(
-        {"name": "what's time now", "description": "query time"}
-    ) == "what's time now"
-
-
-def test_validate_task_input_requires_name():
-    with pytest.raises(KeyError):
-        validate_task_input({"description": "without name"})
-
-
 def test_process_task_failed_expected_match(tmp_path):
     input_path = tmp_path / "input.jsonl"
     output_path = tmp_path / "output.jsonl"
 
     input_path.write_text(
-        '{"name": "query today\'s weather", "description": "query weather in Shanghai", "expected": "another response"}',
+        '{"name": "query today\'s weather", "prompt": "query weather in Shanghai", "expected": "another response"}',
         encoding="utf-8",
     )
 
@@ -199,7 +189,7 @@ def test_process_task_without_expected_has_no_passed_value(tmp_path):
     output_path = tmp_path / "output.jsonl"
 
     input_path.write_text(
-        '{"name": "query today\'s weather", "description": "query weather in Shanghai"}',
+        '{"name": "query today\'s weather", "prompt": "query weather in Shanghai"}',
         encoding="utf-8",
     )
 
@@ -222,12 +212,12 @@ def test_simple_summary(tmp_path):
     output_path = tmp_path / "output.jsonl"
     summary_path = tmp_path / "summary.json"
 
-    input_path.write_text("""{"name": "query today's weather", "description": "query weather in Shanghai", "expected": "fake response"}
-{"name": "draw a ascii art", "description": "draw a ascii art of an apple"}
-{"description": "this task has no name"}
-{"name": "translate sentence", "description": "translate this sentence to chinese", "expected": "wrong response"}
+    input_path.write_text("""{"name": "query today's weather", "prompt": "query weather in Shanghai", "expected": "fake response"}
+{"name": "draw a ascii art", "prompt": "draw a ascii art of an apple"}
+{"prompt": "this task has no name"}
+{"name": "translate sentence", "prompt": "translate this sentence to chinese", "expected": "wrong response"}
 {badkey: "this is an invalid json"}
-{"name": "write a poem", "description": "write a poem about weather", "expected": "fake response"}
+{"name": "write a poem", "prompt": "write a poem about weather", "expected": "fake response"}
 """, encoding="utf-8")
 
     asyncio.run(
@@ -258,9 +248,9 @@ def test_summary_zero_evaluated(tmp_path):
     output_path = tmp_path / "output.jsonl"
     summary_path = tmp_path / "summary.json"
 
-    input_path.write_text("""{"name": "query today's weather", "description": "query weather in Shanghai"}
-{"name": "draw a ascii art", "description": "draw a ascii art of an apple"}
-{"description": "this task has no name"}
+    input_path.write_text("""{"name": "query today's weather", "prompt": "query weather in Shanghai"}
+{"name": "draw a ascii art", "prompt": "draw a ascii art of an apple"}
+{"prompt": "this task has no name"}
 """, encoding="utf-8")
 
     asyncio.run(
@@ -286,7 +276,7 @@ def test_summary_zero_evaluated(tmp_path):
     assert math.isclose(summary["pass_rate"], 0)
 
 
-class StubLLMClient:
+class StubCaseLLMClient:
     def __init__(
         self,
         error: Exception,
@@ -297,9 +287,9 @@ class StubLLMClient:
 
     async def generate(self, prompt: str) -> str:
         match prompt:
-            case "prompt 1":
+            case "query weather in Shanghai":
                 return self.response
-            case "prompt 2":
+            case "draw a ascii art of an apple":
                 raise self.error
             case _:
                 raise self.error
@@ -310,8 +300,8 @@ def test_processed_task_generation_error(tmp_path):
     output_path = tmp_path / "output.jsonl"
     summary_path = tmp_path / "summary.json"
 
-    input_path.write_text("""{"name": "prompt 1", "description": "query weather in Shanghai"}
-{"name": "prompt 2", "description": "draw a ascii art of an apple", "expected": "error prompt"}
+    input_path.write_text("""{"name": "prompt 1", "prompt": "query weather in Shanghai"}
+{"name": "prompt 2", "prompt": "draw a ascii art of an apple", "expected": "error prompt"}
 """, encoding="utf-8")
 
     asyncio.run(
@@ -321,7 +311,7 @@ def test_processed_task_generation_error(tmp_path):
                 output_path=output_path,
                 summary_path=summary_path,
             ),
-            StubLLMClient(error=RuntimeError("expected failure")),
+            StubCaseLLMClient(error=RuntimeError("expected failure")),
         )
     )
 
@@ -392,3 +382,99 @@ def test_create_openai_llm_client_without_input_model(monkeypatch):
 
     with pytest.raises(ValueError, match="OpenAILLMClient requires a model"):
         asyncio.run(main())
+
+
+class StubPromptChangeLLMClient:
+    def __init__(self, response: str = "fake response"):
+        self.prompt: str | None = None
+        self.response = response
+
+    async def generate(self, prompt: str) -> str:
+        self.prompt = prompt
+        return self.response
+
+
+def test_client_received_and_without_expected(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+    summary_path = tmp_path / "summary.jsonl"
+
+    input_path.write_text("""{"name": "name str", "prompt": "prompt str"}
+""", encoding="utf-8")
+
+    client = StubPromptChangeLLMClient()
+
+    asyncio.run(
+        run_batch(
+            BatchConfig(
+                input_path=input_path,
+                output_path=output_path,
+                summary_path=summary_path,
+            ),
+            llm_client=client,
+        )
+    )
+
+    assert client.prompt == "prompt str"
+
+
+def test_task_without_name_or_prompt(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+    output_path = tmp_path / "output.jsonl"
+    summary_path = tmp_path / "summary.jsonl"
+
+    input_path.write_text("""{"prompt": "task without name"}
+{"name": "", "prompt": "task with empty name"}
+{"name": "task without prompt"}
+{"name": "task with empty prompt", "prompt": ""}
+""", encoding="utf-8")
+
+    asyncio.run(
+        run_batch(
+            BatchConfig(
+                input_path=input_path,
+                output_path=output_path,
+                summary_path=summary_path,
+            ),
+            llm_client=FakeLLMClient(),
+        )
+    )
+
+    output_lines = output_path.read_text(encoding="utf-8").splitlines()
+    records = [json.loads(line) for line in output_lines]
+
+    assert len(records) == 4
+
+    assert any(
+        record["status"] == "error"
+        and "missing required field: 'name'" in record["error"]
+        for record in records
+    )
+
+    assert any(
+        record["status"] == "error"
+        and "field content invalid 'name'" in record["error"]
+        for record in records
+    )
+
+    assert any(
+        record["status"] == "error"
+        and "missing required field: 'prompt'" in record["error"]
+        for record in records
+    )
+
+    assert any(
+        record["status"] == "error"
+        and "field content invalid 'prompt'" in record["error"]
+        for record in records
+    )
+
+
+def test_process_task_handles_non_object():
+    result = asyncio.run(
+        process_task([], FakeLLMClient())
+    )
+
+    assert result.status == "error"
+    assert result.name == "<unknown>"
+    assert "JSON object" in result.error

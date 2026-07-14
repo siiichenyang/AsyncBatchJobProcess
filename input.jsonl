@@ -1,6 +1,6 @@
-{"name": "query today's weather", "description": "query weather in Shanghai", "expected": "fake response"}
-{"name": "draw a ascii art", "description": "draw a ascii art of an apple", "expected": "fake response"}
-{"description": "this task has no name"}
-{"name": "translate sentence", "description": "translate this sentence to chinese", "expected": "fake response"}
+{"name": "query today's weather", "prompt": "query weather in Shanghai", "expected": "fake response"}
+{"name": "draw a ascii art", "prompt": "draw a ascii art of an apple", "expected": "fake response"}
+{"prompt": "this task has no name"}
+{"name": "translate sentence", "prompt": "translate this sentence to chinese", "expected": "fake response"}
 {badkey: "this is an invalid json"}
-{"name": "write a poem", "description": "write a poem about weather", "expected": "fake response"}
+{"name": "write a poem", "prompt": "write a poem about weather", "expected": "fake response"}

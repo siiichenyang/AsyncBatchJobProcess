@@ -18,6 +18,7 @@ from batch_processor.llm_client import (
     OpenAILLMClient,
 )
 from batch_processor.evals import Summary
+from batch_processor.task_models import TaskCase
 
 
 logging.basicConfig(level=logging.INFO)
@@ -35,29 +36,31 @@ class TaskResult:
     passed: bool | None = None
 
 
-async def process_task(task, llm_client: LLMClient) -> TaskResult:
+async def process_task(
+    task: object,
+    llm_client: LLMClient,
+) -> TaskResult:
     start_time = time.perf_counter()
     try:
-        task_name = validate_task_input(task)
-    except KeyError as exc:
-        err_str = f"missing required field: {str(exc)}"
-        task_result = TaskResult(
-            name=task.get("name", "<unknown>"),
+        task_case = TaskCase.from_dict(task)
+    except ValueError as exc:
+        err_str = str(exc)
+        logger.warning(err_str)
+        return TaskResult(
+            name=get_task_name(task),
             status="error",
             result={},
             error=err_str,
             latency_seconds=time.perf_counter() - start_time,
             retry_count=0,
         )
-        logger.warning(err_str)
-        return task_result
 
     try:
-        response = await llm_client.generate(task["name"])
+        response = await llm_client.generate(task_case.prompt)
     except Exception as exc:
         err_str = f'{type(exc).__name__}: {exc}'
         task_result = TaskResult(
-            name=task_name,
+            name=task_case.name,
             status="error",
             result={},
             error=err_str,
@@ -68,7 +71,7 @@ async def process_task(task, llm_client: LLMClient) -> TaskResult:
         return task_result
     else:
         task_result = TaskResult(
-            name=task_name,
+            name=task_case.name,
             status="success",
             result={"output": response},
             error=None,
@@ -76,16 +79,19 @@ async def process_task(task, llm_client: LLMClient) -> TaskResult:
             retry_count=0,
         )
 
-    if "expected" in task:
-        task_result.passed = task["expected"] == response
-    logger.info(f"Processed task successfully: {task_name}")
+    if task_case.expected is not None:
+        task_result.passed = task_case.expected == response
+    logger.info(f"Processed task successfully: {task_case.name}")
     return task_result
 
 
-def validate_task_input(task: dict) -> str:
-    if "name" not in task:
-        raise KeyError("name")
-    return task["name"]
+def get_task_name(task: object) -> str:
+    if not isinstance(task, dict):
+        return "<unknown>"
+
+    name = task.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return "<unknown>"
 
 
 async def process_task_with_semaphore(
