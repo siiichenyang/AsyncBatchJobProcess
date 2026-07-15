@@ -55,9 +55,13 @@ Tests use fake and stub clients and do not send network requests.
 
 ### RAG foundation
 
-The first RAG component is a word-based text chunker in
-`batch_processor/chunking.py`. It splits a document into fixed-size windows and
-can repeat words between adjacent chunks through the `overlap` setting.
+Local UTF-8 text files can be loaded through `batch_processor/documents.py`
+into immutable `Document` records containing a document ID, source path, and
+original text. File-system and decoding errors are left visible to the caller.
+
+The word-based text chunker in `batch_processor/chunking.py` splits a loaded
+document into fixed-size windows and can repeat words between adjacent chunks
+through the `overlap` setting.
 
 Each `TextChunk` records its document ID, sequential chunk index, text, and
 word offsets using the half-open range `[start_word, end_word)`. This first
