@@ -53,6 +53,17 @@ From the project root:
 
 Tests use fake and stub clients and do not send network requests.
 
+### RAG foundation
+
+The first RAG component is a word-based text chunker in
+`batch_processor/chunking.py`. It splits a document into fixed-size windows and
+can repeat words between adjacent chunks through the `overlap` setting.
+
+Each `TextChunk` records its document ID, sequential chunk index, text, and
+word offsets using the half-open range `[start_word, end_word)`. This first
+implementation counts whitespace-separated words rather than model tokenizer
+tokens. Embeddings and vector search are not implemented yet.
+
 ### Input & Output
 Input: `input.jsonl`
 Output: `output.jsonl` (generated locally and ignored by git)
