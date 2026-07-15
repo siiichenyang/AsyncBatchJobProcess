@@ -66,7 +66,14 @@ through the `overlap` setting.
 Each `TextChunk` records its document ID, sequential chunk index, text, and
 word offsets using the half-open range `[start_word, end_word)`. This first
 implementation counts whitespace-separated words rather than model tokenizer
-tokens. Embeddings and vector search are not implemented yet.
+tokens.
+
+`batch_processor/embeddings.py` defines an asynchronous embedding-client
+abstraction and a deterministic local implementation. The local client uses
+feature hashing to turn case-folded, whitespace-separated tokens into a
+fixed-size count vector. It is useful for repeatable tests and pipeline
+development, but it is not a trained semantic embedding model. Vector search
+is not implemented yet.
 
 ### Input & Output
 Input: `input.jsonl`
