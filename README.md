@@ -72,8 +72,13 @@ tokens.
 abstraction and a deterministic local implementation. The local client uses
 feature hashing to turn case-folded, whitespace-separated tokens into a
 fixed-size count vector. It is useful for repeatable tests and pipeline
-development, but it is not a trained semantic embedding model. Vector search
-is not implemented yet.
+development, but it is not a trained semantic embedding model.
+
+`batch_processor/similarity.py` provides dependency-free cosine similarity for
+equal-dimensional, non-zero vectors. Cosine similarity compares vector
+direction rather than magnitude: aligned vectors score `1`, orthogonal vectors
+score `0`, and opposite vectors score `-1`. A top-k vector store is not
+implemented yet.
 
 ### Input & Output
 Input: `input.jsonl`
