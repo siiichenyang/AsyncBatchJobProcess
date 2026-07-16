@@ -77,8 +77,16 @@ development, but it is not a trained semantic embedding model.
 `batch_processor/similarity.py` provides dependency-free cosine similarity for
 equal-dimensional, non-zero vectors. Cosine similarity compares vector
 direction rather than magnitude: aligned vectors score `1`, orthogonal vectors
-score `0`, and opposite vectors score `-1`. A top-k vector store is not
-implemented yet.
+score `0`, and opposite vectors score `-1`.
+
+`batch_processor/vector_store.py` provides a small in-memory, exact vector
+store. It keeps each precomputed embedding together with its `TextChunk`
+metadata, scores every stored vector with cosine similarity, sorts matches by
+descending score, and returns the requested top-k results. Embedding generation
+remains separate from retrieval, so the store is synchronous and independent
+of a particular embedding provider. This full-scan implementation is intended
+for learning, local tests, and small datasets rather than large production
+indexes.
 
 ### Input & Output
 Input: `input.jsonl`
