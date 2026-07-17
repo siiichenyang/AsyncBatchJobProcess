@@ -88,6 +88,15 @@ of a particular embedding provider. This full-scan implementation is intended
 for learning, local tests, and small datasets rather than large production
 indexes.
 
+`batch_processor/retrieval.py` is the asynchronous orchestration layer for the
+retrieval pipeline. It chunks a `Document`, awaits an embedding for each chunk,
+stores the resulting vectors, embeds a query, and delegates top-k ranking to the
+vector store. File loading, chunking, embedding, and similarity calculation
+remain separate components. Indexing is currently sequential, and this stage
+returns retrieved context rather than generating an LLM answer. If embedding a
+chunk fails, the error currently propagates after any earlier chunks have been
+stored; retry-safe or idempotent re-indexing is not implemented yet.
+
 ### Input & Output
 Input: `input.jsonl`
 Output: `output.jsonl` (generated locally and ignored by git)
