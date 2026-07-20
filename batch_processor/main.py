@@ -93,6 +93,8 @@ def get_task_name(task: object) -> str:
     if not isinstance(name, str) or not name.strip():
         return "<unknown>"
 
+    return name
+
 
 async def process_task_with_semaphore(
         task,
