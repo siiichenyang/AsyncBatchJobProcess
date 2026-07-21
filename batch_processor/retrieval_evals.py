@@ -18,12 +18,57 @@ class ChunkReference:
             chunk_index=chunk.chunk_index,
         )
 
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        if not isinstance(data, dict) or not data:
+            raise ValueError("data must be json object")
+
+        document_id = data.get("document_id", "")
+        if not isinstance(document_id, str) or not document_id.strip():
+            raise ValueError("'document_id' must be non empty str")
+
+        chunk_index = data.get("chunk_index", -1)
+        if (
+            isinstance(chunk_index, bool)
+            or not isinstance(chunk_index, int)
+            or chunk_index < 0
+        ):
+            raise ValueError("'chunk_index' non-negative integer")
+
+        return cls(
+            document_id=document_id,
+            chunk_index=chunk_index,
+        )
+
 
 @dataclass(frozen=True)
 class RetrievalEvalCase:
     name: str
     query: str
     relevant_chunks: tuple[ChunkReference, ...]
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        if not isinstance(data, dict) or not data:
+            raise ValueError("data must be json object")
+
+        for field_name in ("name", "query"):
+            data_str = data.get(field_name, "")
+            if not isinstance(data_str, str) or not data_str.strip():
+                raise ValueError(f"{field_name!r} must be non empty str")
+
+        relevant_chunks = data.get("relevant_chunks", [])
+        if not isinstance(relevant_chunks, list) or not relevant_chunks:
+            raise ValueError("'relevant_chunks' must be non empty list")
+
+        return cls(
+            name=data["name"],
+            query=data["query"],
+            relevant_chunks=tuple(
+                ChunkReference.from_dict(chunk)
+                for chunk in relevant_chunks
+            ),
+        )
 
 
 def hit_at_k(

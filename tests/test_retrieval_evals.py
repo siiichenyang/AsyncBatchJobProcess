@@ -148,3 +148,75 @@ def test_retrieval_eval_process_single_case(tmp_path):
     assert eval_result.retrieved_chunks == test_case.relevant_chunks
     assert eval_result.hit == 1
     assert eval_result.recall == 1.0
+
+
+def test_eval_case_valid_dict():
+    data = {
+        "name": "fruit-query",
+        "query": "Do we have apple or cherry?",
+        "relevant_chunks": [
+            {"document_id": "basket", "chunk_index": 0},
+            {"document_id": "basket", "chunk_index": 1}
+        ]
+    }
+
+    eval_case = RetrievalEvalCase.from_dict(data)
+
+    assert eval_case == RetrievalEvalCase(
+        name="fruit-query",
+        query="Do we have apple or cherry?",
+        relevant_chunks=(
+            ChunkReference("basket", 0),
+            ChunkReference("basket", 1),
+        ),
+    )
+
+
+def test_eval_case_rejects_empty_relevant_chunks():
+    data = {
+        "name": "fruit-query",
+        "query": "Do we have apple or cherry?",
+        "relevant_chunks": []
+    }
+
+    with pytest.raises(ValueError, match="empty"):
+        RetrievalEvalCase.from_dict(data)
+
+
+@pytest.mark.parametrize("invalid_index", [-1, "str", True])
+def test_eval_case_rejects_invalid_chunk_index(invalid_index):
+    data = {
+        "name": "fruit-query",
+        "query": "Do we have apple or cherry?",
+        "relevant_chunks": [
+            {"document_id": "basket", "chunk_index": invalid_index},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="chunk_index"):
+        RetrievalEvalCase.from_dict(data)
+
+
+@pytest.mark.parametrize("invalid_id", ["", 123])
+def test_eval_case_rejects_invalid_document_id(invalid_id):
+    data = {
+        "name": "fruit-query",
+        "query": "Do we have apple or cherry?",
+        "relevant_chunks": [
+            {"document_id": invalid_id, "chunk_index": 0},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="document_id"):
+        RetrievalEvalCase.from_dict(data)
+
+    data = {
+        "name": "fruit-query",
+        "query": "Do we have apple or cherry?",
+        "relevant_chunks": [
+            {"chunk_index": 0},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="document_id"):
+        RetrievalEvalCase.from_dict(data)
