@@ -10,6 +10,8 @@ from batch_processor.retrieval_evals import (
     ChunkReference,
     hit_at_k,
     recall_at_k,
+    RetrievalEvalCase,
+    evaluate_retrieval_case,
 )
 from batch_processor.embeddings import DeterministicEmbeddingClient
 from batch_processor.retrieval import Retriever
@@ -98,7 +100,7 @@ def test_retrieval_metrics_respect_k_cutoff():
     assert recall_at_k(retrieved, [relevant], k=2) == 1.0
 
 
-def test_retrieval_eval_process(tmp_path):
+def test_retrieval_eval_process_single_case(tmp_path):
     input_path = tmp_path / "input_doc.txt"
 
     input_path.write_text(
@@ -116,32 +118,33 @@ def test_retrieval_eval_process(tmp_path):
         InMemoryVectorStore(),
     )
 
-    async def run_scenario():
+    test_case = RetrievalEvalCase(
+        name="word test",
+        query="Do we have apple or cherry",
+        relevant_chunks=(
+            ChunkReference(document.document_id, 0),
+            ChunkReference(document.document_id, 1),
+        ),
+    )
 
+    async def run_scenario():
         await retriever.index_document(
             document,
             chunk_size=2,
             overlap=0,
         )
 
-        return await retriever.retrieve(
-            "Do we have apple or cherry",
-            top_k=2,
+        return await evaluate_retrieval_case(
+            case=test_case,
+            retriever=retriever,
+            k=2,
         )
 
-    search_results = asyncio.run(run_scenario())
+    eval_result = asyncio.run(run_scenario())
 
-    chunk_refs = [
-        ChunkReference.from_chunk(chunk.chunk)
-        for chunk in search_results
-    ]
-
-    targets = [
-        ChunkReference("basket", 0),
-        ChunkReference("basket", 1),
-    ]
-
-    assert hit_at_k(chunk_refs, targets, 1) == 1
-    assert recall_at_k(chunk_refs, targets, 1) == 0.5
-    assert hit_at_k(chunk_refs, targets, 2) == 1
-    assert recall_at_k(chunk_refs, targets, 2) == 1.0
+    assert eval_result.name == test_case.name
+    assert eval_result.query == test_case.query
+    assert eval_result.k == 2
+    assert eval_result.retrieved_chunks == test_case.relevant_chunks
+    assert eval_result.hit == 1
+    assert eval_result.recall == 1.0

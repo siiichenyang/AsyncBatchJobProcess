@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from batch_processor.chunking import TextChunk
+from batch_processor.retrieval import Retriever
 
 
 @dataclass(frozen=True)
@@ -54,3 +55,42 @@ def recall_at_k(
     matched_chunks = retrieved_chunks & relevant_chunks
 
     return len(matched_chunks) / len(relevant_chunks)
+
+
+@dataclass(frozen=True)
+class RetrievalEvalResult:
+    name: str
+    query: str
+    k: int
+    retrieved_chunks: tuple[ChunkReference, ...]
+    hit: int
+    recall: float
+
+
+async def evaluate_retrieval_case(
+    case: RetrievalEvalCase,
+    retriever: Retriever,
+    *,
+    k: int,
+) -> RetrievalEvalResult:
+    search_results = await retriever.retrieve(
+        case.query,
+        top_k=k,
+    )
+
+    chunk_refs = tuple(
+        ChunkReference.from_chunk(chunk.chunk)
+        for chunk in search_results
+    )
+
+    hit = hit_at_k(chunk_refs, case.relevant_chunks, k)
+    recall = recall_at_k(chunk_refs, case.relevant_chunks, k)
+
+    return RetrievalEvalResult(
+        name=case.name,
+        query=case.query,
+        k=k,
+        retrieved_chunks=chunk_refs,
+        hit=hit,
+        recall=recall,
+    )
