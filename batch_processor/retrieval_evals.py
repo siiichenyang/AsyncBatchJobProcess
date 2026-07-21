@@ -1,11 +1,21 @@
+from typing import Self
 from collections.abc import Sequence
 from dataclasses import dataclass
+
+from batch_processor.chunking import TextChunk
 
 
 @dataclass(frozen=True)
 class ChunkReference:
     document_id: str
     chunk_index: int
+
+    @classmethod
+    def from_chunk(cls, chunk: TextChunk) -> Self:
+        return cls(
+            document_id=chunk.document_id,
+            chunk_index=chunk.chunk_index,
+        )
 
 
 @dataclass(frozen=True)

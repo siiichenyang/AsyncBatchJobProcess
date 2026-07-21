@@ -1,10 +1,18 @@
+import asyncio
 import pytest
+from pathlib import Path
 
+from batch_processor.documents import (
+    load_text_document,
+)
+from batch_processor.vector_store import InMemoryVectorStore
 from batch_processor.retrieval_evals import (
     ChunkReference,
     hit_at_k,
     recall_at_k,
 )
+from batch_processor.embeddings import DeterministicEmbeddingClient
+from batch_processor.retrieval import Retriever
 
 
 def test_retrieval_metrics_partial_hit():
@@ -88,3 +96,52 @@ def test_retrieval_metrics_respect_k_cutoff():
 
     assert hit_at_k(retrieved, [relevant], k=2) == 1
     assert recall_at_k(retrieved, [relevant], k=2) == 1.0
+
+
+def test_retrieval_eval_process(tmp_path):
+    input_path = tmp_path / "input_doc.txt"
+
+    input_path.write_text(
+        "apple pear melon cherry cake cookie",
+        encoding="utf-8",
+    )
+
+    document = load_text_document(
+        Path(input_path),
+        document_id="basket",
+    )
+
+    retriever = Retriever(
+        DeterministicEmbeddingClient(dimensions=256),
+        InMemoryVectorStore(),
+    )
+
+    async def run_scenario():
+
+        await retriever.index_document(
+            document,
+            chunk_size=2,
+            overlap=0,
+        )
+
+        return await retriever.retrieve(
+            "Do we have apple or cherry",
+            top_k=2,
+        )
+
+    search_results = asyncio.run(run_scenario())
+
+    chunk_refs = [
+        ChunkReference.from_chunk(chunk.chunk)
+        for chunk in search_results
+    ]
+
+    targets = [
+        ChunkReference("basket", 0),
+        ChunkReference("basket", 1),
+    ]
+
+    assert hit_at_k(chunk_refs, targets, 1) == 1
+    assert recall_at_k(chunk_refs, targets, 1) == 0.5
+    assert hit_at_k(chunk_refs, targets, 2) == 1
+    assert recall_at_k(chunk_refs, targets, 2) == 1.0
