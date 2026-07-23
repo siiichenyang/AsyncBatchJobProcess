@@ -60,3 +60,56 @@ async def run_retrieval_eval_batch(
             )
 
     return results
+
+
+@dataclass(frozen=True)
+class RetrievalEvalSummary:
+    total: int
+    evaluated: int
+    errors: int
+    k: int
+    hit_rate: float
+    mean_recall: float
+
+
+def build_retrieval_eval_summary(
+    records: Sequence[RetrievalEvalRunRecord],
+    *,
+    k: int,
+) -> RetrievalEvalSummary:
+    if k <= 0:
+        raise ValueError("k must be greater than zero")
+
+    total = len(records)
+    evaluated = 0
+    errors = 0
+    hit_sum = 0
+    recall_sum = 0
+    for record in records:
+        if record.error is not None:
+            errors += 1
+            continue
+
+        if record.result.k != k:
+            raise ValueError(
+                f"expect k={k} find k={record.result.k} line={record.line_number}"
+            )
+
+        evaluated += 1
+        hit_sum += record.result.hit
+        recall_sum += record.result.recall
+
+    hit_rate = 0.0
+    mean_recall = 0.0
+    if evaluated > 0:
+        hit_rate = hit_sum / evaluated
+        mean_recall = recall_sum / evaluated
+
+    return RetrievalEvalSummary(
+        total=total,
+        evaluated=evaluated,
+        errors=errors,
+        k=k,
+        hit_rate=hit_rate,
+        mean_recall=mean_recall,
+    )
