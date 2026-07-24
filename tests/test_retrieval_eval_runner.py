@@ -1,11 +1,15 @@
 import asyncio
 import pytest
+import json
 
 from batch_processor.retrieval_eval_runner import (
     run_retrieval_eval_batch,
     RetrievalEvalRunRecord,
     build_retrieval_eval_summary,
     run_retrieval_eval_file,
+    RetrievalEvalReport,
+    write_retrieval_eval_report,
+    RetrievalEvalSummary,
 )
 from batch_processor.retrieval_eval_io import RetrievalEvalInputRecord
 from batch_processor.retrieval_evals import (
@@ -320,3 +324,84 @@ def test_run_retrieval_eval_file(tmp_path):
     assert report.summary.k == 1
     assert report.summary.hit_rate == 0.5
     assert report.summary.mean_recall == 0.5
+
+
+def test_write_retrieval_eval_report(tmp_path):
+    output_path = tmp_path / "output.jsonl"
+    summary_path = tmp_path / "summary.json"
+
+    report = RetrievalEvalReport(
+        records=(
+            RetrievalEvalRunRecord(
+                line_number=1,
+                result=RetrievalEvalResult(
+                    name="good query",
+                    query="good-query",
+                    k=2,
+                    retrieved_chunks=(
+                        ChunkReference(
+                            document_id="doc-1",
+                            chunk_index=0,
+                        ),
+                        ChunkReference(
+                            document_id="doc-1",
+                            chunk_index=1,
+                        )
+                    ),
+                    hit=1,
+                    recall=1.0,
+                ),
+                error=None,
+            ),
+            RetrievalEvalRunRecord(
+                line_number=2,
+                result=None,
+                error="error msg",
+            ),
+        ),
+        summary=RetrievalEvalSummary(
+            total=2,
+            evaluated=1,
+            errors=1,
+            k=2,
+            hit_rate=1.0,
+            mean_recall=1.0,
+        )
+    )
+
+    write_retrieval_eval_report(
+        report,
+        output_path=str(output_path),
+        summary_path=str(summary_path),
+    )
+
+    output_lines = output_path.read_text(encoding="utf-8").splitlines()
+    output_jsons = [json.loads(output_line) for output_line in output_lines]
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    assert len(output_jsons) == 2
+    assert [item["line_number"] for item in output_jsons] == [1, 2]
+    assert output_jsons[0]["result"] == {
+        "name": "good query",
+        "query": "good-query",
+        "k": 2,
+        "retrieved_chunks": [
+            {"document_id": "doc-1", "chunk_index": 0},
+            {"document_id": "doc-1", "chunk_index": 1}
+        ],
+        "hit": 1,
+        "recall": 1.0
+    }
+    assert output_jsons[0]["error"] is None
+
+    assert output_jsons[1]["result"] is None
+    assert output_jsons[1]["error"] == "error msg"
+
+    assert summary == {
+        "total": 2,
+        "evaluated": 1,
+        "errors": 1,
+        "k": 2,
+        "hit_rate": 1.0,
+        "mean_recall": 1.0,
+    }

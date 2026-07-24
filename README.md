@@ -97,6 +97,29 @@ returns retrieved context rather than generating an LLM answer. If embedding a
 chunk fails, the error currently propagates after any earlier chunks have been
 stored; retry-safe or idempotent re-indexing is not implemented yet.
 
+#### Retrieval evaluation
+
+`batch_processor/retrieval_eval_runner.py` evaluates a JSONL dataset against an
+already-indexed retriever. Each input line contains a case name, its query, and
+one or more relevant chunk references:
+
+```json
+{"name":"example","query":"search terms","relevant_chunks":[{"document_id":"doc-1","chunk_index":0}]}
+```
+
+`write_retrieval_eval_report` persists the resulting report as two files:
+
+- The detail JSONL file contains one record per input line, in input order. Each
+  record has `line_number`, `result`, and `error`. A successful `result` contains
+  `name`, `query`, `k`, `retrieved_chunks`, `hit`, and `recall`; an error record
+  has a null `result` and a diagnostic `error` string.
+- The summary JSON file contains `total`, `evaluated`, `errors`, `k`,
+  `hit_rate`, and `mean_recall`.
+
+Invalid cases and retrieval failures remain in the detail output and contribute
+to `total` and `errors`. They do not contribute to `evaluated`, so they are
+excluded from the denominators of `hit_rate` and `mean_recall`.
+
 ### Input & Output
 Input: `input.jsonl`
 Output: `output.jsonl` (generated locally and ignored by git)

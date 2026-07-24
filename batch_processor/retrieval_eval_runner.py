@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from collections.abc import Sequence
 
 from batch_processor.retrieval_evals import (
@@ -10,6 +10,7 @@ from batch_processor.retrieval_eval_io import (
     load_retrieval_eval_cases,
 )
 from batch_processor.retrieval import Retriever
+from batch_processor.jsonl_io import write_json, write_jsonl
 
 
 @dataclass(frozen=True)
@@ -147,3 +148,18 @@ async def run_retrieval_eval_file(
         records=tuple(eval_records),
         summary=summary,
     )
+
+
+def write_retrieval_eval_report(
+    report: RetrievalEvalReport,
+    *,
+    output_path: str,
+    summary_path: str,
+) -> None:
+    output_records = [
+        asdict(record)
+        for record in report.records
+    ]
+
+    write_jsonl(output_path, output_records)
+    write_json(summary_path, asdict(report.summary))
