@@ -5,6 +5,7 @@ from batch_processor.retrieval_eval_runner import (
     run_retrieval_eval_batch,
     RetrievalEvalRunRecord,
     build_retrieval_eval_summary,
+    run_retrieval_eval_file,
 )
 from batch_processor.retrieval_eval_io import RetrievalEvalInputRecord
 from batch_processor.retrieval_evals import (
@@ -28,6 +29,19 @@ class StubRetriever:
                 SearchResult(
                     chunk=TextChunk(
                         document_id="doc-1",
+                        chunk_index=0,
+                        text="aaa",
+                        start_word=0,
+                        end_word=1,
+                    ),
+                    score=1.0,
+                )
+            ]
+        if query == "miss-query":
+            return [
+                SearchResult(
+                    chunk=TextChunk(
+                        document_id="doc-2",
                         chunk_index=0,
                         text="aaa",
                         start_word=0,
@@ -274,3 +288,35 @@ def test_build_eval_summary_input_invalid_k(invalid_k):
             records,
             k=invalid_k,
         )
+
+
+def test_run_retrieval_eval_file(tmp_path):
+    input_path = tmp_path / "input.jsonl"
+
+    input_path.write_text(
+        '{"name": "good query", "query": "good-query", "relevant_chunks": [{"document_id": "doc-1", "chunk_index": 0}]}\n'
+        '{"name": "miss query", "query": "miss-query", "relevant_chunks": [{"document_id": "doc-1", "chunk_index": 0}]}\n'
+        '{"name": "schema error", "queryb": "good-query"}\n',
+        encoding="utf-8",
+    )
+
+    retriever = StubRetriever()
+
+    report = asyncio.run(
+        run_retrieval_eval_file(
+            str(input_path),
+            retriever,
+            k=1,
+        )
+    )
+
+    assert len(report.records) == 3
+
+    assert report.records[2].line_number == 3
+
+    assert report.summary.total == 3
+    assert report.summary.evaluated == 2
+    assert report.summary.errors == 1
+    assert report.summary.k == 1
+    assert report.summary.hit_rate == 0.5
+    assert report.summary.mean_recall == 0.5

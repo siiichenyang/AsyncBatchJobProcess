@@ -5,7 +5,10 @@ from batch_processor.retrieval_evals import (
     RetrievalEvalResult,
     evaluate_retrieval_case,
 )
-from batch_processor.retrieval_eval_io import RetrievalEvalInputRecord
+from batch_processor.retrieval_eval_io import (
+    RetrievalEvalInputRecord,
+    load_retrieval_eval_cases,
+)
 from batch_processor.retrieval import Retriever
 
 
@@ -112,4 +115,35 @@ def build_retrieval_eval_summary(
         k=k,
         hit_rate=hit_rate,
         mean_recall=mean_recall,
+    )
+
+
+@dataclass(frozen=True)
+class RetrievalEvalReport:
+    records: tuple[RetrievalEvalRunRecord, ...]
+    summary: RetrievalEvalSummary
+
+
+async def run_retrieval_eval_file(
+    input_path: str,
+    retriever: Retriever,
+    *,
+    k: int,
+) -> RetrievalEvalReport:
+    if k <= 0:
+        raise ValueError("k must be greater than zero")
+
+    input_records = load_retrieval_eval_cases(input_path)
+
+    eval_records = await run_retrieval_eval_batch(
+        input_records,
+        retriever,
+        k=k,
+    )
+
+    summary = build_retrieval_eval_summary(eval_records, k=k)
+
+    return RetrievalEvalReport(
+        records=tuple(eval_records),
+        summary=summary,
     )
