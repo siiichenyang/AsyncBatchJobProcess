@@ -120,6 +120,16 @@ Invalid cases and retrieval failures remain in the detail output and contribute
 to `total` and `errors`. They do not contribute to `evaluated`, so they are
 excluded from the denominators of `hit_rate` and `mean_recall`.
 
+A deterministic benchmark is stored in `data/rag/`. Its integration test loads
+`backend_topics.txt`, indexes it with `chunk_size=6` and `overlap=0`, and runs
+the cases in `retrieval_eval_cases.jsonl` with `k=1`. The expected aggregate
+scores are a `0.75` hit rate and `0.625` mean recall. One case deliberately uses
+synonyms that the local feature-hashing embedding cannot understand, making a
+retrieval failure visible rather than hiding it behind an all-passing dataset.
+The benchmark's chunk references are valid only for that fixed chunking
+configuration; comparing another chunking strategy requires compatible ground
+truth instead of reusing the chunk indexes blindly.
+
 ### Input & Output
 Input: `input.jsonl`
 Output: `output.jsonl` (generated locally and ignored by git)

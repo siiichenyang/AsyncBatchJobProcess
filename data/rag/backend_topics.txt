@@ -1,0 +1,4 @@
+python async await coroutine event loop
+postgres transaction commit rollback isolation database
+redis cache ttl eviction memory performance
+docker container image compose network service
