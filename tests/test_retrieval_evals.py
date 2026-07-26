@@ -12,9 +12,14 @@ from batch_processor.retrieval_evals import (
     recall_at_k,
     RetrievalEvalCase,
     evaluate_retrieval_case,
+    chunk_overlap_span,
+    RelevantSpan,
+    span_recall_at_k,
+    span_hit_at_k,
 )
 from batch_processor.embeddings import DeterministicEmbeddingClient
 from batch_processor.retrieval import Retriever
+from batch_processor.chunking import TextChunk
 
 
 def test_retrieval_metrics_partial_hit():
@@ -220,3 +225,145 @@ def test_eval_case_rejects_invalid_document_id(invalid_id):
 
     with pytest.raises(ValueError, match="document_id"):
         RetrievalEvalCase.from_dict(data)
+
+
+def test_chunk_overlap_span_true():
+    chunk = TextChunk(
+        document_id="doc-1",
+        chunk_index=0,
+        text="abc",
+        start_word=0,
+        end_word=10,
+    )
+    span = RelevantSpan(
+        document_id="doc-1",
+        start_word=5,
+        end_word=20,
+    )
+
+    assert chunk_overlap_span(chunk, span)
+
+
+def test_chunk_overlap_span_adjacent():
+    chunk = TextChunk(
+        document_id="doc-1",
+        chunk_index=0,
+        text="abc",
+        start_word=0,
+        end_word=4,
+    )
+    span = RelevantSpan(
+        document_id="doc-1",
+        start_word=4,
+        end_word=6,
+    )
+
+    assert not chunk_overlap_span(chunk, span)
+
+
+def test_chunk_overlap_span_different_doc():
+    chunk = TextChunk(
+        document_id="doc-1",
+        chunk_index=0,
+        text="abc",
+        start_word=0,
+        end_word=4,
+    )
+    span = RelevantSpan(
+        document_id="doc-2",
+        start_word=1,
+        end_word=8,
+    )
+
+    assert not chunk_overlap_span(chunk, span)
+
+
+def test_recall_hit_chunk_overlap_span():
+    chunks = [
+        TextChunk(
+            document_id="doc-1",
+            chunk_index=0,
+            text="abc",
+            start_word=0,
+            end_word=4,
+        ),
+        TextChunk(
+            document_id="doc-1",
+            chunk_index=1,
+            text="abc",
+            start_word=15,
+            end_word=17,
+        ),
+    ]
+    spans = [
+        RelevantSpan(
+            document_id="doc-1",
+            start_word=1,
+            end_word=8,
+        ),
+        RelevantSpan(
+            document_id="doc-1",
+            start_word=10,
+            end_word=17,
+        ),
+    ]
+
+    assert span_hit_at_k(chunks, spans, k=1) == 1
+    assert span_recall_at_k(chunks, spans, k=1) == 0.5
+    assert span_recall_at_k(chunks, spans, k=2) == 1.0
+
+
+def test_recall_ignore_same_chunk():
+    chunks = [
+        TextChunk(
+            document_id="doc-1",
+            chunk_index=0,
+            text="abc",
+            start_word=0,
+            end_word=4,
+        ),
+        TextChunk(
+            document_id="doc-1",
+            chunk_index=0,
+            text="abc",
+            start_word=2,
+            end_word=8,
+        ),
+    ]
+    spans = [
+        RelevantSpan(
+            document_id="doc-1",
+            start_word=2,
+            end_word=3,
+        ),
+        RelevantSpan(
+            document_id="doc-1",
+            start_word=10,
+            end_word=17,
+        ),
+    ]
+
+    assert span_hit_at_k(chunks, spans, k=2) == 1
+    assert span_recall_at_k(chunks, spans, k=2) == 0.5
+
+
+def test_span_rejects_invalid_data():
+    data = {
+        "document_id": "doc-1",
+        "start_word": 10,
+        "end_word": 0,
+    }
+
+    with pytest.raises(ValueError, match="invalid"):
+        RelevantSpan.from_dict(data)
+
+
+def test_span_rejects_empty_doc_id():
+    data = {
+        "document_id": "  ",
+        "start_word": 10,
+        "end_word": 0,
+    }
+
+    with pytest.raises(ValueError, match="non-empty"):
+        RelevantSpan.from_dict(data)

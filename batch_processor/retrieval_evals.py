@@ -139,3 +139,89 @@ async def evaluate_retrieval_case(
         hit=hit,
         recall=recall,
     )
+
+
+@dataclass(frozen=True)
+class RelevantSpan:
+    document_id: str
+    start_word: int
+    end_word: int
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        if not isinstance(data, dict) or not data:
+            raise ValueError("data must be json object")
+
+        document_id = data.get("document_id", "")
+        if not isinstance(document_id, str) or not document_id.strip():
+            raise ValueError("document_id must be non-empty str")
+
+        start_word = data.get("start_word", -1)
+        if (
+            isinstance(start_word, bool)
+            or not isinstance(start_word, int)
+            or start_word < 0
+        ):
+            raise ValueError("invalid start_word")
+
+        end_word = data.get("end_word", -1)
+        if (
+            isinstance(end_word, bool)
+            or not isinstance(end_word, int)
+            or end_word <= start_word
+        ):
+            raise ValueError("invalid end_word")
+
+        return cls(
+            document_id=document_id,
+            start_word=start_word,
+            end_word=end_word,
+        )
+
+
+def chunk_overlap_span(
+    chunk: TextChunk,
+    span: RelevantSpan,
+) -> bool:
+    return (
+        chunk.document_id == span.document_id
+        and span.start_word < chunk.end_word
+        and chunk.start_word < span.end_word
+    )
+
+
+def span_recall_at_k(
+    chunks: Sequence[TextChunk],
+    targets: Sequence[RelevantSpan],
+    k: int,
+) -> float:
+    if k <= 0:
+        raise ValueError("k must be greater than zero")
+
+    targets_set = set(targets)
+    if not targets_set:
+        raise ValueError("targets must not be empty")
+
+    first_k_chunks = set(chunks[:k])
+    matches = {
+        span
+        for span in targets_set
+        if any(
+            chunk_overlap_span(chunk, span)
+            for chunk in first_k_chunks
+        )
+    }
+
+    return len(matches) / len(targets_set)
+
+
+def span_hit_at_k(
+    chunks: Sequence[TextChunk],
+    targets: Sequence[RelevantSpan],
+    k: int,
+) -> int:
+    return 1 if span_recall_at_k(
+        chunks,
+        targets,
+        k,
+    ) > 0.0 else 0
