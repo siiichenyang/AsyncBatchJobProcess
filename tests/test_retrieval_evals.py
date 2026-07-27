@@ -180,7 +180,7 @@ def test_eval_case_valid_dict():
     )
 
 
-def test_eval_case_rejects_empty_relevant_chunks():
+def test_eval_case_rejects_empty_relevant_spans():
     data = {
         "name": "fruit-query",
         "query": "Do we have apple or cherry?",
@@ -192,7 +192,7 @@ def test_eval_case_rejects_empty_relevant_chunks():
 
 
 @pytest.mark.parametrize("invalid_index", [-1, "str", True])
-def test_eval_case_rejects_invalid_chunk_index(invalid_index):
+def test_eval_case_rejects_invalid_start_word(invalid_index):
     data = {
         "name": "fruit-query",
         "query": "Do we have apple or cherry?",
