@@ -126,9 +126,9 @@ def test_retrieval_eval_process_single_case(tmp_path):
     test_case = RetrievalEvalCase(
         name="word test",
         query="Do we have apple or cherry",
-        relevant_chunks=(
-            ChunkReference(document.document_id, 0),
-            ChunkReference(document.document_id, 1),
+        relevant_spans=(
+            RelevantSpan(document.document_id, 0, 1),
+            RelevantSpan(document.document_id, 3, 4),
         ),
     )
 
@@ -150,7 +150,10 @@ def test_retrieval_eval_process_single_case(tmp_path):
     assert eval_result.name == test_case.name
     assert eval_result.query == test_case.query
     assert eval_result.k == 2
-    assert eval_result.retrieved_chunks == test_case.relevant_chunks
+    assert eval_result.retrieved_chunks == (
+        ChunkReference("basket", 0),
+        ChunkReference("basket", 1),
+    )
     assert eval_result.hit == 1
     assert eval_result.recall == 1.0
 
@@ -159,9 +162,9 @@ def test_eval_case_valid_dict():
     data = {
         "name": "fruit-query",
         "query": "Do we have apple or cherry?",
-        "relevant_chunks": [
-            {"document_id": "basket", "chunk_index": 0},
-            {"document_id": "basket", "chunk_index": 1}
+        "relevant_spans": [
+            {"document_id": "basket", "start_word": 0, "end_word": 1},
+            {"document_id": "basket", "start_word": 3, "end_word": 6}
         ]
     }
 
@@ -170,9 +173,9 @@ def test_eval_case_valid_dict():
     assert eval_case == RetrievalEvalCase(
         name="fruit-query",
         query="Do we have apple or cherry?",
-        relevant_chunks=(
-            ChunkReference("basket", 0),
-            ChunkReference("basket", 1),
+        relevant_spans=(
+            RelevantSpan("basket", 0, 1),
+            RelevantSpan("basket", 3, 6),
         ),
     )
 
@@ -181,7 +184,7 @@ def test_eval_case_rejects_empty_relevant_chunks():
     data = {
         "name": "fruit-query",
         "query": "Do we have apple or cherry?",
-        "relevant_chunks": []
+        "relevant_spans": []
     }
 
     with pytest.raises(ValueError, match="empty"):
@@ -193,12 +196,12 @@ def test_eval_case_rejects_invalid_chunk_index(invalid_index):
     data = {
         "name": "fruit-query",
         "query": "Do we have apple or cherry?",
-        "relevant_chunks": [
-            {"document_id": "basket", "chunk_index": invalid_index},
+        "relevant_spans": [
+            {"document_id": "basket", "start_word": invalid_index, "end_word": 10},
         ]
     }
 
-    with pytest.raises(ValueError, match="chunk_index"):
+    with pytest.raises(ValueError, match="invalid"):
         RetrievalEvalCase.from_dict(data)
 
 
@@ -207,8 +210,8 @@ def test_eval_case_rejects_invalid_document_id(invalid_id):
     data = {
         "name": "fruit-query",
         "query": "Do we have apple or cherry?",
-        "relevant_chunks": [
-            {"document_id": invalid_id, "chunk_index": 0},
+        "relevant_spans": [
+            {"document_id": invalid_id, "start_word": 0, "end_word": 1},
         ]
     }
 
@@ -218,8 +221,8 @@ def test_eval_case_rejects_invalid_document_id(invalid_id):
     data = {
         "name": "fruit-query",
         "query": "Do we have apple or cherry?",
-        "relevant_chunks": [
-            {"chunk_index": 0},
+        "relevant_spans": [
+            {"start_word": 0, "end_word": 1, },
         ]
     }
 

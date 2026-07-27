@@ -1,4 +1,4 @@
-{"name": "普通命中0", "query": "async coroutine event loop", "relevant_chunks": [{"document_id": "backend_topics", "chunk_index": 0}]}
-{"name": "普通命中1", "query": "transaction rollback isolation", "relevant_chunks": [{"document_id": "backend_topics", "chunk_index": 1}]}
-{"name": "两个相关", "query": "database cache", "relevant_chunks": [{"document_id": "backend_topics", "chunk_index": 1}, {"document_id": "backend_topics", "chunk_index": 2}]}
-{"name": "同义词查询失败", "query": "in-memory expiration", "relevant_chunks": [{"document_id": "backend_topics", "chunk_index": 2}]}
+{"name": "普通命中0", "query": "async coroutine event loop", "relevant_spans": [{"document_id": "backend_topics", "start_word": 1, "end_word": 6}]}
+{"name": "普通命中1", "query": "transaction rollback isolation", "relevant_spans": [{"document_id": "backend_topics", "start_word": 7, "end_word": 11}]}
+{"name": "两个相关", "query": "database cache", "relevant_spans": [{"document_id": "backend_topics", "start_word": 11, "end_word": 12}, {"document_id": "backend_topics", "start_word": 13, "end_word": 14}]}
+{"name": "同义词查询失败", "query": "in-memory expiration", "relevant_spans": [{"document_id": "backend_topics", "start_word": 12, "end_word": 18}]}

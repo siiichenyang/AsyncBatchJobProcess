@@ -42,10 +42,48 @@ class ChunkReference:
 
 
 @dataclass(frozen=True)
+class RelevantSpan:
+    document_id: str
+    start_word: int
+    end_word: int
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        if not isinstance(data, dict) or not data:
+            raise ValueError("data must be json object")
+
+        document_id = data.get("document_id", "")
+        if not isinstance(document_id, str) or not document_id.strip():
+            raise ValueError("document_id must be non-empty str")
+
+        start_word = data.get("start_word", -1)
+        if (
+            isinstance(start_word, bool)
+            or not isinstance(start_word, int)
+            or start_word < 0
+        ):
+            raise ValueError("invalid start_word")
+
+        end_word = data.get("end_word", -1)
+        if (
+            isinstance(end_word, bool)
+            or not isinstance(end_word, int)
+            or end_word <= start_word
+        ):
+            raise ValueError("invalid end_word")
+
+        return cls(
+            document_id=document_id,
+            start_word=start_word,
+            end_word=end_word,
+        )
+
+
+@dataclass(frozen=True)
 class RetrievalEvalCase:
     name: str
     query: str
-    relevant_chunks: tuple[ChunkReference, ...]
+    relevant_spans: tuple[RelevantSpan, ...]
 
     @classmethod
     def from_dict(cls, data: object) -> Self:
@@ -57,16 +95,16 @@ class RetrievalEvalCase:
             if not isinstance(data_str, str) or not data_str.strip():
                 raise ValueError(f"{field_name!r} must be non empty str")
 
-        relevant_chunks = data.get("relevant_chunks", [])
-        if not isinstance(relevant_chunks, list) or not relevant_chunks:
-            raise ValueError("'relevant_chunks' must be non empty list")
+        relevant_spans = data.get("relevant_spans", [])
+        if not isinstance(relevant_spans, list) or not relevant_spans:
+            raise ValueError("'relevant_spans' must be non empty list")
 
         return cls(
             name=data["name"],
             query=data["query"],
-            relevant_chunks=tuple(
-                ChunkReference.from_dict(chunk)
-                for chunk in relevant_chunks
+            relevant_spans=tuple(
+                RelevantSpan.from_dict(span)
+                for span in relevant_spans
             ),
         )
 
@@ -123,13 +161,18 @@ async def evaluate_retrieval_case(
         top_k=k,
     )
 
-    chunk_refs = tuple(
-        ChunkReference.from_chunk(chunk.chunk)
-        for chunk in search_results
+    retrieved_chunks = tuple(
+        search_result.chunk
+        for search_result in search_results
     )
 
-    hit = hit_at_k(chunk_refs, case.relevant_chunks, k)
-    recall = recall_at_k(chunk_refs, case.relevant_chunks, k)
+    chunk_refs = tuple(
+        ChunkReference.from_chunk(chunk)
+        for chunk in retrieved_chunks
+    )
+
+    hit = span_hit_at_k(retrieved_chunks, case.relevant_spans, k)
+    recall = span_recall_at_k(retrieved_chunks, case.relevant_spans, k)
 
     return RetrievalEvalResult(
         name=case.name,
@@ -139,44 +182,6 @@ async def evaluate_retrieval_case(
         hit=hit,
         recall=recall,
     )
-
-
-@dataclass(frozen=True)
-class RelevantSpan:
-    document_id: str
-    start_word: int
-    end_word: int
-
-    @classmethod
-    def from_dict(cls, data: object) -> Self:
-        if not isinstance(data, dict) or not data:
-            raise ValueError("data must be json object")
-
-        document_id = data.get("document_id", "")
-        if not isinstance(document_id, str) or not document_id.strip():
-            raise ValueError("document_id must be non-empty str")
-
-        start_word = data.get("start_word", -1)
-        if (
-            isinstance(start_word, bool)
-            or not isinstance(start_word, int)
-            or start_word < 0
-        ):
-            raise ValueError("invalid start_word")
-
-        end_word = data.get("end_word", -1)
-        if (
-            isinstance(end_word, bool)
-            or not isinstance(end_word, int)
-            or end_word <= start_word
-        ):
-            raise ValueError("invalid end_word")
-
-        return cls(
-            document_id=document_id,
-            start_word=start_word,
-            end_word=end_word,
-        )
 
 
 def chunk_overlap_span(

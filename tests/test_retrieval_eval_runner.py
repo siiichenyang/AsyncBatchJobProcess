@@ -14,6 +14,7 @@ from batch_processor.retrieval_eval_runner import (
 from batch_processor.retrieval_eval_io import RetrievalEvalInputRecord
 from batch_processor.retrieval_evals import (
     ChunkReference,
+    RelevantSpan,
     RetrievalEvalCase,
     RetrievalEvalResult,
 )
@@ -65,10 +66,11 @@ def test_run_retrieval_eval_batch():
             case=RetrievalEvalCase(
                 name="good case",
                 query="good-query",
-                relevant_chunks=(
-                    ChunkReference(
+                relevant_spans=(
+                    RelevantSpan(
                         document_id="doc-1",
-                        chunk_index=0,
+                        start_word=0,
+                        end_word=1,
                     ),
                 )
             ),
@@ -79,10 +81,11 @@ def test_run_retrieval_eval_batch():
             case=RetrievalEvalCase(
                 name="bad case",
                 query="bad-query",
-                relevant_chunks=(
-                    ChunkReference(
+                relevant_spans=(
+                    RelevantSpan(
                         document_id="doc-1",
-                        chunk_index=0,
+                        start_word=0,
+                        end_word=1,
                     ),
                 )
             ),
@@ -126,12 +129,13 @@ def test_run_eval_rejects_invalid_k(invalid_k):
             case=RetrievalEvalCase(
                 name="good case",
                 query="good-query",
-                relevant_chunks=(
-                    ChunkReference(
+                relevant_spans=(
+                    RelevantSpan(
                         document_id="doc-1",
-                        chunk_index=0,
+                        start_word=0,
+                        end_word=1,
                     ),
-                )
+                ),
             ),
             error=None,
         ),
@@ -298,8 +302,8 @@ def test_run_retrieval_eval_file(tmp_path):
     input_path = tmp_path / "input.jsonl"
 
     input_path.write_text(
-        '{"name": "good query", "query": "good-query", "relevant_chunks": [{"document_id": "doc-1", "chunk_index": 0}]}\n'
-        '{"name": "miss query", "query": "miss-query", "relevant_chunks": [{"document_id": "doc-1", "chunk_index": 0}]}\n'
+        '{"name": "good query", "query": "good-query", "relevant_spans": [{"document_id": "doc-1", "start_word": 0, "end_word": 1}]}\n'
+        '{"name": "miss query", "query": "miss-query", "relevant_spans": [{"document_id": "doc-1", "start_word": 0, "end_word": 1}]}\n'
         '{"name": "schema error", "queryb": "good-query"}\n',
         encoding="utf-8",
     )

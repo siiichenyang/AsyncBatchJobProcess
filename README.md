@@ -101,11 +101,19 @@ stored; retry-safe or idempotent re-indexing is not implemented yet.
 
 `batch_processor/retrieval_eval_runner.py` evaluates a JSONL dataset against an
 already-indexed retriever. Each input line contains a case name, its query, and
-one or more relevant chunk references:
+one or more relevant spans in the original document:
 
 ```json
-{"name":"example","query":"search terms","relevant_chunks":[{"document_id":"doc-1","chunk_index":0}]}
+{"name":"example","query":"search terms","relevant_spans":[{"document_id":"doc-1","start_word":4,"end_word":8}]}
 ```
+
+Span offsets use the half-open interval `[start_word, end_word)`. A retrieved
+chunk matches a span when both refer to the same document and their word ranges
+have a non-empty overlap. Because the labels describe source positions rather
+than generated chunk indexes, the same ground truth can be reused across
+different chunk sizes and overlaps. The current any-overlap rule is intentionally
+simple and may count a chunk that contains only a small part of the relevant
+passage.
 
 `write_retrieval_eval_report` persists the resulting report as two files:
 
@@ -126,9 +134,8 @@ the cases in `retrieval_eval_cases.jsonl` with `k=1`. The expected aggregate
 scores are a `0.75` hit rate and `0.625` mean recall. One case deliberately uses
 synonyms that the local feature-hashing embedding cannot understand, making a
 retrieval failure visible rather than hiding it behind an all-passing dataset.
-The benchmark's chunk references are valid only for that fixed chunking
-configuration; comparing another chunking strategy requires compatible ground
-truth instead of reusing the chunk indexes blindly.
+Those scores describe the baseline chunking configuration; future configurations
+reuse the spans but may produce different retrieval scores.
 
 ### Input & Output
 Input: `input.jsonl`
