@@ -137,6 +137,23 @@ retrieval failure visible rather than hiding it behind an all-passing dataset.
 Those scores describe the baseline chunking configuration; future configurations
 reuse the spans but may produce different retrieval scores.
 
+`batch_processor/retrieval_eval_comparison.py` compares chunking strategies
+sequentially while holding the document, evaluation cases, embedding client, and
+`k` constant. Each strategy receives a fresh in-memory vector store so indexed
+chunks from one run cannot contaminate another. The current deterministic
+benchmark produces:
+
+| Strategy | Chunk size | Overlap | Hit rate | Mean recall |
+| --- | ---: | ---: | ---: | ---: |
+| `no-overlap` | 6 | 0 | 0.75 | 0.625 |
+| `overlap-2` | 6 | 2 | 0.75 | 0.75 |
+
+Overlap improves recall for the query whose two relevant spans fall on opposite
+sides of a baseline chunk boundary: one overlapping chunk covers both spans.
+This small deterministic result demonstrates how to run a controlled comparison;
+it does not establish that overlap is always better. Overlap also creates more
+chunks and therefore increases indexing and storage work.
+
 ### Input & Output
 Input: `input.jsonl`
 Output: `output.jsonl` (generated locally and ignored by git)
