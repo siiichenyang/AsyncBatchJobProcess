@@ -3,6 +3,8 @@ from collections.abc import Sequence
 
 
 from batch_processor.vector_store import SearchResult
+from batch_processor.retrieval import Retriever
+from batch_processor.llm_client import LLMClient
 
 
 @dataclass(frozen=True)
@@ -44,4 +46,45 @@ def build_rag_prompt(
     return RAGPrompt(
         prompt=prompt,
         sources=tuple(sources),
+    )
+
+
+@dataclass(frozen=True)
+class RAGAnswer:
+    query: str
+    answer: str
+    prompt: str
+    sources: tuple[SearchResult, ...]
+
+
+async def answer_rag_query(
+    query: str,
+    retriever: Retriever,
+    llm_client: LLMClient,
+    *,
+    top_k: int,
+) -> RAGAnswer:
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("query must be non-empty str")
+
+    if top_k <= 0:
+        raise ValueError("top_k must be greater than zero")
+
+    sources = await retriever.retrieve(
+        query=query,
+        top_k=top_k,
+    )
+
+    rag_prompt = build_rag_prompt(
+        query=query,
+        sources=sources,
+    )
+
+    answer = await llm_client.generate(rag_prompt.prompt)
+
+    return RAGAnswer(
+        query=query,
+        answer=answer,
+        prompt=rag_prompt.prompt,
+        sources=rag_prompt.sources,
     )

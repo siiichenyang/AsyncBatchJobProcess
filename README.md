@@ -109,9 +109,15 @@ not included in the model prompt.
 The prompt instructs the model to answer only from retrieved context, cite the
 provided labels, treat retrieved text as reference material rather than
 instructions, and state when the context is missing or insufficient. An empty
-retrieval result is represented explicitly as `No context was retrieved.` This
-stage only constructs the prompt; it does not call an LLM or validate citations
-in a generated answer yet.
+retrieval result is represented explicitly as `No context was retrieved.`
+
+`answer_rag_query` completes the asynchronous RAG path using a pre-indexed
+retriever: it retrieves top-k chunks, builds the prompt, calls the injected
+`LLMClient`, and returns an immutable `RAGAnswer`. The result retains the query,
+generated answer, exact model prompt, and ranked sources so the run can be
+traced. Query and top-k validation happen before either dependency is awaited;
+retrieval and model errors remain visible to the caller. Generated citation
+labels are not parsed or validated yet.
 
 #### Retrieval evaluation
 
