@@ -97,6 +97,22 @@ returns retrieved context rather than generating an LLM answer. If embedding a
 chunk fails, the error currently propagates after any earlier chunks have been
 stored; retry-safe or idempotent re-indexing is not implemented yet.
 
+#### RAG prompt construction
+
+`batch_processor/rag.py` converts ranked retrieval results into an immutable
+`RAGPrompt`. Retrieved chunks remain in ranking order and are labeled as
+`[document_id#chunk_index]`, allowing a later model answer to cite the exact
+retrieval unit. The structured `sources` tuple retains each full `SearchResult`,
+including its similarity score, for tracing and debugging even though scores are
+not included in the model prompt.
+
+The prompt instructs the model to answer only from retrieved context, cite the
+provided labels, treat retrieved text as reference material rather than
+instructions, and state when the context is missing or insufficient. An empty
+retrieval result is represented explicitly as `No context was retrieved.` This
+stage only constructs the prompt; it does not call an LLM or validate citations
+in a generated answer yet.
+
 #### Retrieval evaluation
 
 `batch_processor/retrieval_eval_runner.py` evaluates a JSONL dataset against an
