@@ -128,6 +128,13 @@ fail. This verifies citation presence and source membership only. It does not
 prove that the cited chunk supports the surrounding claim, so citation
 faithfulness remains a separate semantic evaluation problem.
 
+The same module also provides `evaluate_answer_content` as a deterministic
+answer-quality baseline. It strips each required phrase and performs a
+case-insensitive substring check with `casefold()`; every phrase must appear for
+the result to pass. The result preserves the required phrases and any missing
+phrases in input order for debugging. This is not a semantic-equivalence check:
+valid paraphrases can fail, while an incidental substring match can pass.
+
 #### Retrieval evaluation
 
 `batch_processor/retrieval_eval_runner.py` evaluates a JSONL dataset against an
