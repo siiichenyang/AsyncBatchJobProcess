@@ -116,8 +116,17 @@ retriever: it retrieves top-k chunks, builds the prompt, calls the injected
 `LLMClient`, and returns an immutable `RAGAnswer`. The result retains the query,
 generated answer, exact model prompt, and ranked sources so the run can be
 traced. Query and top-k validation happen before either dependency is awaited;
-retrieval and model errors remain visible to the caller. Generated citation
-labels are not parsed or validated yet.
+retrieval and model errors remain visible to the caller. The query path itself
+does not enforce citation correctness.
+
+`batch_processor/rag_evals.py` provides a deterministic first layer of citation
+evaluation. It extracts bracketed labels from a generated answer, preserves
+their occurrence order, and compares them with labels derived from the answer's
+ranked sources. A citation check passes only when at least one label is present
+and every cited label belongs to those sources; missing or fabricated labels
+fail. This verifies citation presence and source membership only. It does not
+prove that the cited chunk supports the surrounding claim, so citation
+faithfulness remains a separate semantic evaluation problem.
 
 #### Retrieval evaluation
 

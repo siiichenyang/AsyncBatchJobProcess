@@ -36,7 +36,7 @@ def build_rag_prompt(
         prompt += "No context was retrieved.\n"
 
     for source in sources:
-        source_str = f"[{source.chunk.document_id}#{source.chunk.chunk_index}]\n"
+        source_str = format_source_label(source) + "\n"
         source_str += source.chunk.text + "\n"
         source_str += "\n"
         prompt += source_str
@@ -87,4 +87,11 @@ async def answer_rag_query(
         answer=answer,
         prompt=rag_prompt.prompt,
         sources=rag_prompt.sources,
+    )
+
+
+def format_source_label(source: SearchResult) -> str:
+    return (
+        f"[{source.chunk.document_id}"
+        f"#{source.chunk.chunk_index}]"
     )
