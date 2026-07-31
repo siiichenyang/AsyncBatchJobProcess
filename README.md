@@ -135,6 +135,31 @@ the result to pass. The result preserves the required phrases and any missing
 phrases in input order for debugging. This is not a semantic-equivalence check:
 valid paraphrases can fail, while an incidental substring match can pass.
 
+#### End-to-end RAG evaluation
+
+`data/rag/rag_answer_eval_cases.jsonl` provides answer-level cases. Each JSONL
+record contains a case name, the retrieval query, and the phrases that a valid
+answer must contain:
+
+```json
+{"name":"async case","query":"async coroutine event loop","required_phrases":["coroutine","event loop"]}
+```
+
+`batch_processor/rag_eval_io.py` validates these records while retaining input
+line numbers and per-line parsing errors. For each valid case,
+`evaluate_rag_case` runs the normal retrieval and generation path exactly once,
+then evaluates answer content and citations independently. Its structured result
+keeps the generated answer, exact prompt, ranked source chunks, required or
+missing phrases, and extracted or invalid citations for later diagnosis.
+
+`batch_processor/rag_eval_runner.py` processes cases sequentially and isolates
+retrieval, model, and evaluation failures to their individual records. The
+detail report is JSONL with `line_number`, `result`, and `error`; the summary JSON
+contains `total`, `evaluated`, `errors`, `k`, `answer_pass`, `citation_pass`,
+`answer_pass_rate`, and `citation_pass_rate`. Error records remain visible in
+`total` but are excluded from `evaluated` and therefore from both rate
+denominators. `write_rag_eval_report` writes the detail and summary files.
+
 #### Retrieval evaluation
 
 `batch_processor/retrieval_eval_runner.py` evaluates a JSONL dataset against an
@@ -191,6 +216,23 @@ sides of a baseline chunk boundary: one overlapping chunk covers both spans.
 This small deterministic result demonstrates how to run a controlled comparison;
 it does not establish that overlap is always better. Overlap also creates more
 chunks and therefore increases indexing and storage work.
+
+#### Common RAG failure modes
+
+The separate retrieval, content, and citation signals help localize failures:
+
+| Observed signal | Likely interpretation |
+| --- | --- |
+| Low hit rate or recall | The retriever did not provide enough relevant context; chunking, query wording, embeddings, or `k` may be responsible. |
+| Good retrieval but low answer pass rate | Relevant context was available, but the model omitted required information or expressed it differently from the deterministic expectation. |
+| Content passes but citation evaluation fails | The answer contains the expected information but omitted a source label or fabricated one that was not retrieved. |
+| Citation evaluation passes | Every cited label was retrieved, but this alone does not prove that the cited text supports the associated claim. |
+
+Prompt grounding remains a model instruction rather than a hard guarantee, so a
+model can still invent unsupported details. The required-phrase evaluator is
+also intentionally limited: paraphrases may produce false failures and
+incidental substring matches may produce false passes. These cases require trace
+inspection or a later semantic or model-based evaluator.
 
 ### Input & Output
 Input: `input.jsonl`

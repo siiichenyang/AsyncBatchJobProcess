@@ -1,0 +1,3 @@
+{"name": "async case", "query": "async coroutine event loop", "required_phrases": ["coroutine", "event loop"]}
+{"name": "transaction case", "query": "transaction rollback isolation", "required_phrases": ["rollback", "isolation"]}
+{"name": "database/cache case", "query": "database cache", "required_phrases": ["database", "cache"]}
