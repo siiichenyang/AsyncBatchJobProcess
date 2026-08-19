@@ -43,6 +43,24 @@ automatically load a `.env` file. Renaming the example file is therefore not
 enough; export the variables in the shell as shown above. Never commit a real
 API key or a populated `.env` file.
 
+### Run the API
+
+Start the FastAPI service from the project root:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn batch_processor.api:app --reload
+```
+
+The current API exposes a liveness check at
+`http://127.0.0.1:8000/health`:
+
+```json
+{"status":"ok"}
+```
+
+Interactive OpenAPI documentation is available at
+`http://127.0.0.1:8000/docs` while the service is running.
+
 ### How to test
 
 From the project root:

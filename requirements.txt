@@ -1,2 +1,5 @@
 pytest
 openai
+fastapi
+uvicorn
+httpx
