@@ -53,6 +53,18 @@ From the project root:
 
 Tests use fake and stub clients and do not send network requests.
 
+### Evaluation service boundary
+
+`batch_processor/eval_service.py` contains the in-memory evaluation workflow:
+task validation, concurrent LLM execution, timeout/retry handling, and summary
+metrics. It accepts task objects and an injected `LLMClient` without reading or
+writing files.
+
+`batch_processor/main.py` is the JSONL/CLI adapter. It loads input records,
+delegates valid cases to the evaluation service, preserves invalid JSON records
+as task errors, and writes the detail and summary reports. This separation lets
+future HTTP routes reuse the same evaluation behavior without temporary files.
+
 ### RAG foundation
 
 Local UTF-8 text files can be loaded through `batch_processor/documents.py`

@@ -8,11 +8,13 @@ from batch_processor.main import (
     create_llm_client,
     main,
     run_batch,
+)
+from batch_processor.eval_service import (
     process_task,
     process_task_with_semaphore,
     TaskResult,
-    TaskCase,
 )
+from batch_processor.task_models import TaskCase
 from batch_processor.config import (
     BatchConfig,
     LLMConfig,
