@@ -51,11 +51,53 @@ Start the FastAPI service from the project root:
 .\.venv\Scripts\python.exe -m uvicorn batch_processor.api:app --reload
 ```
 
-The current API exposes a liveness check at
+The API exposes a liveness check at
 `http://127.0.0.1:8000/health`:
 
 ```json
 {"status":"ok"}
+```
+
+`POST http://127.0.0.1:8000/evals/run` runs an in-memory model evaluation.
+The provider is selected with the same `LLM_*` environment variables as the
+CLI and defaults to the local fake client. Example request:
+
+```json
+{
+  "cases": [
+    {"name": "spacing case", "prompt": "What is FastAPI?", "expected": "fake response"}
+  ],
+  "max_concurrency": 2,
+  "timeout_seconds": 30,
+  "max_retries": 2
+}
+```
+
+The response contains per-case results and an aggregate report:
+
+```json
+{
+  "results": [
+    {
+      "name": "spacing case",
+      "status": "success",
+      "result": {"output": "fake response"},
+      "error": null,
+      "latency_seconds": 0.001,
+      "retry_count": 0,
+      "passed": true
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "success": 1,
+    "error": 0,
+    "evaluated": 1,
+    "passed": 1,
+    "failed": 0,
+    "pass_rate": 1.0
+  }
+}
 ```
 
 Interactive OpenAPI documentation is available at

@@ -1,3 +1,6 @@
+from dataclasses import asdict
+from typing import Literal
+
 from fastapi import FastAPI
 from pydantic import (
     BaseModel,
@@ -5,7 +8,10 @@ from pydantic import (
     ValidationInfo,
     Field,
 )
-from typing import Literal
+
+from batch_processor.config import LLMConfig
+from batch_processor.eval_service import build_summary, run_eval_cases
+from batch_processor.main import create_llm_client
 
 
 class HealthResponse(BaseModel):
@@ -68,3 +74,24 @@ app = FastAPI(title="LLM Agent Evaluation Backend")
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+@app.post("/evals/run", response_model=EvalRunResponse)
+async def run_evals(request: EvalRunRequest) -> EvalRunResponse:
+    llm_client = create_llm_client(LLMConfig.from_env())
+    results = await run_eval_cases(
+        [case.model_dump() for case in request.cases],
+        llm_client,
+        max_concurrency=request.max_concurrency,
+        timeout_seconds=request.timeout_seconds,
+        max_retries=request.max_retries,
+    )
+    summary = build_summary(results)
+
+    return EvalRunResponse(
+        results=[
+            EvalResultResponse(**asdict(result))
+            for result in results
+        ],
+        summary=EvalSummaryResponse(**summary),
+    )
