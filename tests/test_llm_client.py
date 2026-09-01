@@ -4,6 +4,7 @@ from typing import Self
 from batch_processor.llm_client import (
     FakeLLMClient,
     OpenAILLMClient,
+    close_llm_client,
 )
 
 
@@ -26,6 +27,45 @@ class StubOpenAIResponse():
 
 class StubOpenAILLMClient():
     responses = StubOpenAIResponse()
+
+    def __init__(self):
+        self.closed = False
+
+    async def close(self):
+        self.closed = True
+
+
+def test_fake_llm_client_close_is_noop():
+    client = FakeLLMClient()
+
+    asyncio.run(client.close())
+
+
+def test_open_ai_llm_client_close_calls_underlying_client():
+    stub = StubOpenAILLMClient()
+    client = OpenAILLMClient(
+        model="gpt-example",
+        api_key="fake api key",
+        client=stub,
+    )
+
+    asyncio.run(client.close())
+
+    assert stub.closed is True
+
+
+class FailingCloseClient:
+    async def generate(self, prompt: str) -> str:
+        return "fake response"
+
+    async def close(self) -> None:
+        raise RuntimeError("close failed")
+
+
+def test_close_llm_client_does_not_raise_close_errors():
+    client = FailingCloseClient()
+
+    asyncio.run(close_llm_client(client))
 
 
 def test_open_ai_llm_client_stub_generate():

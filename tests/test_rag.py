@@ -118,6 +118,9 @@ class RecordingLLMClient:
 
         return self.answer
 
+    async def close(self) -> None:
+        """No-op for test client."""
+
 
 def test_rag_process():
     query = "Do we have a fruit?"

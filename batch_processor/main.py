@@ -15,6 +15,7 @@ from batch_processor.llm_client import (
     LLMClient,
     FakeLLMClient,
     OpenAILLMClient,
+    close_llm_client,
 )
 from batch_processor.eval_service import (
     TaskResult,
@@ -78,7 +79,10 @@ def create_llm_client(config: LLMConfig) -> LLMClient:
 async def main() -> None:
     llm_config = LLMConfig.from_env()
     llm_client = create_llm_client(llm_config)
-    await run_batch(BatchConfig(), llm_client)
+    try:
+        await run_batch(BatchConfig(), llm_client)
+    finally:
+        await close_llm_client(llm_client)
 
 
 if __name__ == "__main__":

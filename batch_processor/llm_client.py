@@ -1,11 +1,25 @@
+import logging
 from typing import Protocol
 
 from openai import AsyncOpenAI
 
 
+logger = logging.getLogger(__name__)
+
+
 class LLMClient(Protocol):
     async def generate(self, prompt: str) -> str:
         ...
+
+    async def close(self) -> None:
+        ...
+
+
+async def close_llm_client(client: LLMClient) -> None:
+    try:
+        await client.close()
+    except Exception:
+        logger.error("Failed to close LLM client; ignoring close error", exc_info=True)
 
 
 class FakeLLMClient:
@@ -14,6 +28,9 @@ class FakeLLMClient:
 
     async def generate(self, prompt: str) -> str:
         return self.response
+
+    async def close(self) -> None:
+        """No-op for the fake client; kept for LLMClient lifecycle symmetry."""
 
 
 class OpenAILLMClient:
@@ -34,3 +51,6 @@ class OpenAILLMClient:
         )
 
         return response.output_text
+
+    async def close(self) -> None:
+        await self.client.close()

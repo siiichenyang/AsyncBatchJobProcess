@@ -44,6 +44,9 @@ class StubLLMClient:
             return "bad result [doc-1#1]"
         return "something else"
 
+    async def close(self) -> None:
+        """No-op for test client."""
+
 
 def test_rag_eval_runner(tmp_path):
     case_path = tmp_path / "input_cases.jsonl"

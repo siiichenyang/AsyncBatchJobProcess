@@ -38,6 +38,12 @@ OpenAI mode uses the asynchronous
 [OpenAI Python SDK](https://github.com/openai/openai-python) and the Responses
 API. It sends real requests and may consume API quota.
 
+The `LLMClient` abstraction exposes an async `close()` lifecycle hook. The CLI
+closes its client after each batch, and the FastAPI app creates one shared
+client in lifespan, lets requests borrow it through a dependency, and closes it
+on shutdown, so the underlying OpenAI HTTP client is explicitly managed instead
+of relying on background cleanup.
+
 `.env.example` documents the supported variables, but this project does not
 automatically load a `.env` file. Renaming the example file is therefore not
 enough; export the variables in the shell as shown above. Never commit a real

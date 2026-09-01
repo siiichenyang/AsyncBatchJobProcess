@@ -60,6 +60,9 @@ class SlowLLMClient:
     async def generate(self, prompt: str) -> str:
         await asyncio.sleep(self.sleep_seconds)
 
+    async def close(self) -> None:
+        """No-op for test client."""
+
 
 def test_process_task_timeout_retry():
     semaphore = asyncio.Semaphore(1)
@@ -296,6 +299,9 @@ class StubCaseLLMClient:
             case _:
                 raise self.error
 
+    async def close(self) -> None:
+        """No-op for test client."""
+
 
 def test_processed_task_generation_error(tmp_path):
     input_path = tmp_path / "input.jsonl"
@@ -386,6 +392,103 @@ def test_create_openai_llm_client_without_input_model(monkeypatch):
         asyncio.run(main())
 
 
+class CloseTrackingLLMClient:
+    def __init__(self):
+        self.closed = False
+
+    async def generate(self, prompt: str) -> str:
+        return "fake response"
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def test_main_closes_llm_client(monkeypatch):
+    client = CloseTrackingLLMClient()
+
+    async def fake_run_batch(config, llm_client):
+        return []
+
+    monkeypatch.setattr(
+        "batch_processor.main.create_llm_client",
+        lambda config: client,
+    )
+    monkeypatch.setattr(
+        "batch_processor.main.run_batch",
+        fake_run_batch,
+    )
+
+    asyncio.run(main())
+
+    assert client.closed is True
+
+
+def test_main_closes_llm_client_on_error(monkeypatch):
+    client = CloseTrackingLLMClient()
+
+    async def failing_run_batch(config, llm_client):
+        raise RuntimeError("expected failure")
+
+    monkeypatch.setattr(
+        "batch_processor.main.create_llm_client",
+        lambda config: client,
+    )
+    monkeypatch.setattr(
+        "batch_processor.main.run_batch",
+        failing_run_batch,
+    )
+
+    with pytest.raises(RuntimeError, match="expected failure"):
+        asyncio.run(main())
+
+    assert client.closed is True
+
+
+class FailingCloseLLMClient:
+    async def generate(self, prompt: str) -> str:
+        return "fake response"
+
+    async def close(self) -> None:
+        raise RuntimeError("close failed")
+
+
+def test_main_ignores_close_error_after_success(monkeypatch):
+    client = FailingCloseLLMClient()
+
+    async def fake_run_batch(config, llm_client):
+        return []
+
+    monkeypatch.setattr(
+        "batch_processor.main.create_llm_client",
+        lambda config: client,
+    )
+    monkeypatch.setattr(
+        "batch_processor.main.run_batch",
+        fake_run_batch,
+    )
+
+    asyncio.run(main())
+
+
+def test_main_preserves_run_error_when_close_also_fails(monkeypatch):
+    client = FailingCloseLLMClient()
+
+    async def failing_run_batch(config, llm_client):
+        raise RuntimeError("expected failure")
+
+    monkeypatch.setattr(
+        "batch_processor.main.create_llm_client",
+        lambda config: client,
+    )
+    monkeypatch.setattr(
+        "batch_processor.main.run_batch",
+        failing_run_batch,
+    )
+
+    with pytest.raises(RuntimeError, match="expected failure"):
+        asyncio.run(main())
+
+
 class StubPromptChangeLLMClient:
     def __init__(self, response: str = "fake response"):
         self.prompt: str | None = None
@@ -394,6 +497,9 @@ class StubPromptChangeLLMClient:
     async def generate(self, prompt: str) -> str:
         self.prompt = prompt
         return self.response
+
+    async def close(self) -> None:
+        """No-op for test client."""
 
 
 def test_client_received_and_without_expected(tmp_path):

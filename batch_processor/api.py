@@ -1,7 +1,8 @@
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from pydantic import (
     BaseModel,
     field_validator,
@@ -11,6 +12,7 @@ from pydantic import (
 
 from batch_processor.config import LLMConfig
 from batch_processor.eval_service import build_summary, run_eval_cases
+from batch_processor.llm_client import LLMClient, close_llm_client
 from batch_processor.main import create_llm_client
 
 
@@ -68,7 +70,20 @@ class EvalRunResponse(BaseModel):
     summary: EvalSummaryResponse
 
 
-app = FastAPI(title="LLM Agent Evaluation Backend")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.llm_client = create_llm_client(LLMConfig.from_env())
+    try:
+        yield
+    finally:
+        await close_llm_client(app.state.llm_client)
+
+
+def get_llm_client(request: Request) -> LLMClient:
+    return request.app.state.llm_client
+
+
+app = FastAPI(title="LLM Agent Evaluation Backend", lifespan=lifespan)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -77,8 +92,10 @@ async def health() -> HealthResponse:
 
 
 @app.post("/evals/run", response_model=EvalRunResponse)
-async def run_evals(request: EvalRunRequest) -> EvalRunResponse:
-    llm_client = create_llm_client(LLMConfig.from_env())
+async def run_evals(
+    request: EvalRunRequest,
+    llm_client: LLMClient = Depends(get_llm_client),
+) -> EvalRunResponse:
     results = await run_eval_cases(
         [case.model_dump() for case in request.cases],
         llm_client,
