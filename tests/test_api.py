@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from batch_processor.api import EvalCaseRequest, app
+from batch_processor.eval_run_store import EvalRunStore
 from batch_processor.llm_client import FakeLLMClient, close_llm_client
 
 
@@ -26,11 +27,23 @@ async def request_eval_run(payload: dict) -> httpx.Response:
         return await client.post("/evals/run", json=payload)
 
 
+async def request_eval_summary(run_id: str) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        return await client.get(f"/evals/{run_id}/summary")
+
+
 @pytest.fixture(autouse=True)
-def reset_llm_client():
+def reset_llm_client(eval_run_db_path, monkeypatch):
+    monkeypatch.setenv("EVAL_RUN_DB_PATH", eval_run_db_path)
+    app.state.eval_run_store = EvalRunStore(eval_run_db_path)
     app.state.llm_client = FakeLLMClient()
     yield
     app.state.llm_client = None
+    app.state.eval_run_store = None
 
 
 def test_health():
@@ -86,6 +99,44 @@ def test_run_evals_returns_results_and_summary():
         "failed": 1,
         "pass_rate": 0.5,
     }
+    assert "run_id" in body
+
+
+def test_run_evals_persists_summary_for_lookup():
+    response = asyncio.run(
+        request_eval_run(
+            {
+                "cases": [
+                    {
+                        "name": "persistent case",
+                        "prompt": "first prompt",
+                        "expected": "fake response",
+                    },
+                ],
+            }
+        )
+    )
+
+    assert response.status_code == 200
+    run_id = response.json()["run_id"]
+
+    # Simulate a restart or another uvicorn worker: open a brand-new store
+    # pointed at the same SQLite file and confirm the summary is still readable.
+    db_path = app.state.eval_run_store.db_path
+    old_store = app.state.eval_run_store
+    old_store.close()
+    app.state.eval_run_store = EvalRunStore(db_path)
+
+    summary_response = asyncio.run(request_eval_summary(run_id))
+
+    assert summary_response.status_code == 200
+    assert summary_response.json() == response.json()["summary"]
+
+
+def test_get_eval_summary_returns_404_for_missing_run():
+    response = asyncio.run(request_eval_summary("missing-run-id"))
+
+    assert response.status_code == 404
 
 
 class CloseTrackingLLMClient:

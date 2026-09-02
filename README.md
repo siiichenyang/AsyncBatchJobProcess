@@ -64,9 +64,12 @@ The API exposes a liveness check at
 {"status":"ok"}
 ```
 
-`POST http://127.0.0.1:8000/evals/run` runs an in-memory model evaluation.
-The provider is selected with the same `LLM_*` environment variables as the
-CLI and defaults to the local fake client. Example request:
+`POST http://127.0.0.1:8000/evals/run` runs a model evaluation and stores
+it as a persistent SQLite run record. The provider is selected with the
+same `LLM_*` environment variables as the CLI and defaults to the local fake
+client. By default the SQLite database is written to `data/eval_runs.db`;
+set `EVAL_RUN_DB_PATH` to use a different file or a path shared by multiple
+uvicorn workers. Example request:
 
 ```json
 {
@@ -79,10 +82,11 @@ CLI and defaults to the local fake client. Example request:
 }
 ```
 
-The response contains per-case results and an aggregate report:
+The response contains a persistent run identifier, per-case results, and an aggregate report:
 
 ```json
 {
+  "run_id": "3f2c8f1a-...",
   "results": [
     {
       "name": "spacing case",
@@ -105,6 +109,15 @@ The response contains per-case results and an aggregate report:
   }
 }
 ```
+
+Use the returned `run_id` to fetch the aggregate report later from
+`GET http://127.0.0.1:8000/evals/{run_id}/summary`. The summary response has
+the same `summary` object shown above.
+
+SQLite persistence is isolated in `batch_processor/eval_run_store.py`, so the
+API layer does not implement storage details. The store works with plain JSON
+records rather than response models, keeping it ready for a later Postgres
+migration.
 
 Interactive OpenAPI documentation is available at
 `http://127.0.0.1:8000/docs` while the service is running.
